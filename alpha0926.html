@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0">
+
+<link rel="stylesheet"
+	href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+	integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+	crossorigin="anonymous">
+</head>
+<body>
+<div class="container">
+
+	<h1>XEMPage</h1>
+	<div class="collapse" id="div1">
+		<label>パスフレーズ:</label>
+		<input type="text" id="pass" class="form-control">
+		<div id="div_use_saved_qr" class="form-group form-check collapse">
+	       <input type="checkbox" class="form-check-input" id="use_saved_qr">
+	       <label class="form-check-label" for="exampleCheck1">保存されたアカウント情報を復元時に使用する</label>
+	    </div>
+
+		<button type="button" id="create" class="btn btn-primary">作成</button>
+		<button type="button" id="restore" class="btn btn-primary">復元</button>
+	</div><!-- div1 -->
+
+	<div class="collapse" id="div3">
+		<hr>
+		<ul class="nav nav-tabs">
+			<li class="nav-item"><a href="#tab_contact"  data-toggle="tab" class="nav-link active">アカウント</a></li>
+			<li class="nav-item"><a href="#tab_transfer" data-toggle="tab" class="nav-link">送信</a></li>
+			<li class="nav-item"><a href="#tab_handover" data-toggle="tab" class="nav-link">譲渡</a></li>
+			<li class="nav-item"><a href="#tab_setting"  data-toggle="tab" class="nav-link">設定</a></li>
+		</ul>
+		<div class="tab-content">
+			<div id="tab_contact" class="tab-pane active"><!-- アカウント -->
+				<br>
+				<div class="card" style="width: 18rem;">
+					<img class="card-img-top" id="qr_contact" alt="カードの画像">
+					<div class="card-body">
+						<h5 class="card-title">アドレス</h5>
+						<p class="card-text" id="text_contact"></p>
+						<div>
+							<dl id="account_info"></dl>
+						</div>
+						<div>
+							<button type="button" id="button_faucet" class="btn btn-primary">
+								<span id="spinner_faucet" class="collapse spinner-border spinner-border-sm" role="status"></span>
+								Faucet
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div id="tab_transfer" class="tab-pane"><!-- 送信 -->
+				<!-- <div><b>送信先公開鍵:</b> <span id="scan_data_transfer" class="text-break"></span></div>-->
+				<div><b>送信先アドレス:</b> <span id="scan_data_transfer_address" class="text-break"></span></div>
+				<div><b>送信モザイク:</b> <select class="form-control" id="mosaic_transfer" name="number"></select>
+				</div>
+				<div><b>送信量:</b> <input type="text" id="amount_transfer" class="form-control"></div>
+				<div><b>メッセージ:</b> <textarea class="form-control" id="message_transfer" rows="2"></textarea></div>
+
+				<div>
+					<button type="button" id="button_transfer" class="btn btn-primary">
+						<span id="spinner_transfer" class="collapse spinner-border spinner-border-sm" role="status"></span>
+						送信
+					</button></div>
+					<div id="confirmed_transfer"><ul></ul>
+				</div>
+			</div>
+			<div id="tab_handover" class="tab-pane"><!-- 譲渡 -->
+				<div><b>譲渡先ID:</b> <span id="scan_data_handover" class="text-break"></span></div>
+				<div>
+					<button type="button" id="button_handover" class="btn btn-primary">
+						<span id="spinner_handover" class="collapse spinner-border spinner-border-sm" role="status"></span>
+						譲渡
+					</button>
+				</div>
+			</div>
+
+			<div id="tab_setting" class="tab-pane"><!-- 設定 -->
+				<br>
+				<div>
+					<button type="button" id="button_qr" class="btn btn-primary">
+						鍵情報表示
+					</button>
+				</div>
+				<br>
+
+				<div class="collapse" id="div-setting">
+					<div class="card" style="width: 18rem;">
+						<img class="card-img-top" id="qr_account" alt="カードの画像">
+						<div class="card-body">
+							<p class="card-text bg-danger text-white" >鍵情報を控えた後はブラウザを閉じてください</p>
+							<h5 class="card-title">秘密鍵</h5>
+							<p class="card-text" id="qr_key"></p>
+						</div>
+					</div>
+				</div>
+			</div>
+
+		</div><!-- tab-content -->
+	</div><!-- div3 -->
+</div>
+
+<!-- QRスキャンモーダル -->
+<div class="modal fade" id="modal-qrscan" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="exampleModalLabel2">QRスキャン</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="閉じる">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<label id="modal-label"></label>
+
+				<div class="input-group">
+					<label class="input-group-btn mr-1">
+						<span class="btn btn-primary">
+							画像でスキャン<input id="file_image" type="file" style="display:none">
+						</span>
+					</label>
+					<span  class="collapse" id="div-ns">
+						<label class="input-group-btn">
+							<span class="btn btn-primary">
+								アドレス<input id="modal_address" type="button" style="display:none">
+							</span>
+						</label>
+						<label class="input-group-btn">
+							<span class="btn btn-primary">
+								ネームスペース<input id="modal_ns" type="button" style="display:none">
+							</span>
+						</label>
+					</span>
+				</div>
+
+
+				<canvas id="canvas" hidden></canvas>
+				<div class="collapse" id="div-qrscan">
+					<label>ネームスペース:</label>
+					<input type="text" id="text_namespace" class="form-control">
+					<button type="button"  id="button_namespace" class="btn btn-primary" >検索</button>
+				</div>
+				<div class="collapse" id="div-qrscan-address">
+					<label>アドレス:</label>
+					<input type="text" id="text_address" class="form-control">
+					<button type="button"  id="button_address" class="btn btn-primary" >検索</button>
+				</div>
+				<div id="scan_data" class="text-break"></div>
+
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
+				<button type="button" class="btn btn-primary" data-dismiss="modal"	id="modal_ok">OK</button>
+
+			</div><!-- /.modal-footer -->
+		</div><!-- /.modal-content -->
+	</div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<!-- アカウント選択モーダル -->
+<div class="modal fade" id="modal-msig" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">マルチシグ選択</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="閉じる">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<div id="list-msig" class="list-group text-break" style="max-width: 400px;"><ul></ul></div>
+			</div>
+		</div><!-- /.modal-content -->
+	</div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.min.js"></script>
+<script
+	src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+	integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+	crossorigin="anonymous">
+</script>
+<script
+	src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+	integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+	crossorigin="anonymous">
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+<script src="jsQR.js"></script>
+<script src="symbol-qr-library-0.12.0.js"></script>
+<script src="symbol-sdk-0.21.0.js"></script>
+<script src="xembook-tools.js"></script>
+<script>$(function() {
+
+const SYMBOL_EPOCH = 1573430400;
+const CURRENCY = "5B66E76BECAD0860";
+const GENERATION_HASH = "6C1B92391CCB41C96478471C2634C111D9E989DECD66130C0430B5B8D20117CD";
+
+
+//const NODE = 'https://sym-test963.opening-line.jp:3001';
+//const NODE   = 'https://0964-api.48gh23s.xyz:3001';
+//const NODE = "https://conif1.tsvr.net:3001";
+//const NODE = 'http://api-01.ap-northeast-1.096x.symboldev.network:3000';
+const NODE = 'https://sym-test.opening-line.jp:3001';
+
+
+//const NODE = 'http://api-01.ap-northeast-1.0.10.0.x.symboldev.network:3000';
+const FAUCET   = 'http://faucet-0.10.0.x-01.symboldev.network';
+const EXPLORER = 'http://explorer-0.10.0.x-01.symboldev.network';
+
+const nem  = require("/node_modules/symbol-sdk");
+const qr   = require("/node_modules/symbol-qr-library");
+const op   = require("/node_modules/rxjs/operators");
+const rxjs = require("/node_modules/rxjs");
+const repo = new nem.RepositoryFactoryHttp(NODE, nem.NetworkType.TEST_NET,GENERATION_HASH);
+
+// dummy for script kiddy
+var bob = nem.Account.generateNewAccount(nem.NetworkType.TEST_NET);
+var privateKey = bob.privateKey;
+var keyPair = bob.keyPair;
+var secret = keyPair.privateKey;
+
+const nsHttp = new nem.NamespaceHttp(NODE);
+const txHttp  = new nem.TransactionHttp(NODE);
+const metaHttp = new nem.MetadataHttp(NODE);
+const blockHttp = new nem.BlockHttp(NODE);
+const receiptHttp = new nem.ReceiptHttp(NODE);
+const accountHttp = new nem.AccountHttp(NODE);
+const multisigHttp = new nem.MultisigHttp(NODE);
+const mosaicHttp = new nem.MosaicHttp(NODE);
+
+const metaService = new nem.MetadataTransactionService(metaHttp);
+const transactionService = new nem.TransactionService(txHttp, receiptHttp);
+
+const wsEndpoint = NODE.replace('http', 'ws') + "/ws";
+const listener = new nem.Listener(wsEndpoint,nsHttp,WebSocket);
+
+listener.open().then(() => {
+	setInterval(function(){
+		if(listener.webSocket.readyState !== listener.webSocket.OPEN){
+			listener.webSocket = undefined;
+			listener.open();
+		}else{
+			listener.newBlock();
+
+		}
+	}, 30000);
+});
+
+
+//グローバル変数
+var assetPublicAccount;	//操作対象アカウント（マルチシグの場合は操作される対象のアカウント）
+var signerJSON;			//暗号化済み署名者アカウント
+var canvasElement;
+var canvas;
+
+var currentTab;			//カメラ操作している場合の現在選択中のタブ
+var isMovieScanning = false;
+var video = document.createElement("video");
+var scanData	  = document.getElementById("scan_data");
+
+
+//QRコードスキャン関連///////////////////////////////////
+function drawLine(begin, end, color) {
+	canvas.beginPath();
+	canvas.moveTo(begin.x, begin.y);
+	canvas.lineTo(end.x, end.y);
+	canvas.lineWidth = 4;
+	canvas.strokeStyle = color;
+	canvas.stroke();
+}
+
+function tick() {
+	if(!isMovieScanning){return;}
+	if (video.readyState === video.HAVE_ENOUGH_DATA) {
+		canvasElement.hidden = false;
+		canvasElement.width  = 450;
+		canvasElement.height = 450 * video.videoHeight / video.videoWidth;
+		getCodeInfo(video);
+	}
+	requestAnimationFrame(tick);
+}
+
+function getCodeInfo(src){
+
+	canvas.drawImage(src, 0, 0, canvasElement.width, canvasElement.height);
+	var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+	var code = jsQR(imageData.data, imageData.width, imageData.height, {inversionAttempts: "dontInvert"});
+
+	if (code) {
+		isMovieScanning = false;
+		drawLine(code.location.topLeftCorner		, code.location.topRightCorner		,"#FF3B58");
+		drawLine(code.location.topRightCorner		, code.location.bottomRightCorner	,"#FF3B58");
+		drawLine(code.location.bottomRightCorner	, code.location.bottomLeftCorner	,"#FF3B58");
+		drawLine(code.location.bottomLeftCorner		, code.location.topLeftCorner		,"#FF3B58");
+		scanData.innerText = code.data;
+	}
+}
+
+function startVideo(divId){
+
+	currentTab = "tab_" + divId;
+	isMovieScanning = true;
+	canvasElement = document.getElementById("canvas");
+	canvas		  = canvasElement.getContext("2d");
+
+	navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
+		video.srcObject = stream;
+		window.localStream = stream;
+		video.setAttribute("playsinline", true);
+		video.play();
+		requestAnimationFrame(tick);
+	});
+}
+
+function stopVideo(){
+	if(window.localStream != undefined){
+		window.localStream.getTracks().forEach( (track) => {
+			track.stop();
+		});
+	}
+}
+
+//ファイル処理関連///////////////////////////////
+function setFileHash(divId) {
+
+	const fileList = document.getElementById("file_" + divId).files;
+	const reader = new FileReader();
+	const file = fileList[0];
+	reader.readAsDataURL(file, "utf-8");
+	reader.onload = (function(_) {
+		return function(e) {
+			const raw  = CryptoJS.enc.Base64.parse(e.target.result.split(/,(.+)?/)[1]);
+			const sign = CryptoJS.SHA256(raw);
+			$("#text_" + divId).val(sign);
+		};
+	})(file);
+}
+
+function scanFileImage(){
+
+	isMovieScanning = false;
+	canvasElement.hidden = false;
+
+	stopVideo();
+
+	const fileList = document.getElementById("file_image").files;
+	const reader = new FileReader();
+	const file = fileList[0];
+	if (file.type == 'image/jpeg' || file.type == 'image/png'){
+		reader.readAsDataURL(file, "utf-8");
+		reader.onload = (function(_) {
+			return function(e) {
+
+				const img = new Image();
+				img.src = e.target.result;
+				img.onload = function() {
+					canvasElement.height = img.width;
+					canvasElement.width	= img.height;
+					getCodeInfo(img);
+				};
+			};
+		})(file);
+	} else {
+		alert('JPEGかPNGファイルをアップして下さい');
+	}
+}
+////////////////////////////////////////////////////////
+
+//選択中アカウントの完了トランザクション検知リスナー
+const assetSignedTxConfirmed = function(signedTxHash){
+
+	const transactionObservable = listener.confirmed(assetPublicAccount.address);
+	const errorObservable = listener.status(assetPublicAccount.address, signedTxHash);
+	return rxjs.merge(transactionObservable, errorObservable).pipe(
+		op.first(),
+		op.map((errorOrTransaction) => {
+			if (errorOrTransaction.constructor.name === "TransactionStatusError") {
+				throw new Error(errorOrTransaction.code);
+			} else {
+				return errorOrTransaction;
+			}
+		}),
+	);
+}
+
+//連署要求検知リスナー
+function setSignerListener(cosignerAccount){
+
+	var bondedSubscribe = function(observer){
+		observer.pipe(
+
+			op.filter(_ =>  !_.signedByAccount(cosignerAccount)),
+			op.map(_ => {
+				const signerQR = qr.AccountQR.fromJSON(signerJSON,
+					window.prompt("署名要求があります。パスフレーズをもう一度入力してください", "")
+				);
+				return signerQR.account.signCosignatureTransaction(nem.CosignatureTransaction.create(_));
+			}),
+			op.mergeMap(_ => {
+				return rxjs.of({
+					ignored:txHttp.announceAggregateBondedCosignature(_),
+					hash:_.parentHash
+				});
+			}),
+			op.mergeMap(_=>{
+				console.log(_);
+				return assetSignedTxConfirmed(_.hash);
+			})
+		)
+		.subscribe(
+			x => alert("署名完了しました"),
+			err => {
+				alert(err);
+				console.error(err);
+			}
+		);
+	}
+
+	const bondedListener = listener.aggregateBondedAdded(cosignerAccount.address)
+	const bondedHttp = txHttp.search({address:cosignerAccount.address,group:nem.TransactionGroup.Partial})
+	.pipe(
+		op.delay(2000),
+		op.mergeMap(page => page.data)
+	);
+
+	bondedSubscribe(bondedListener);
+	bondedSubscribe(bondedHttp);
+}
+
+//アカウント情報表示
+function showAccountQR(){
+
+	var mosaics;
+
+	const mosaicIdSubscribe = function(observer){
+
+		return 	observer.pipe(
+			op.mergeMap(_=>{
+				mosaics = rxjs.of(_.mosaics);
+				return _.mosaics;
+			}),
+			op.map(_ =>  _.id),
+			op.toArray(),
+		);
+	}
+
+	const mosaicIdSubscribe2 = function(observer){
+
+		return 	observer.pipe(
+			op.first(),
+			op.mergeMap(_=>{
+				console.log(_);
+				mosaics = rxjs.of(_.mosaics);
+				return _.mosaics;
+			}),
+			op.map(_ =>  _.id),
+			op.toArray(),
+			op.repeat()
+		);
+	}
+
+	const accountSubscribe = function(observer,subscriber){
+
+		subscriber(observer)
+		.subscribe(_=>{
+
+			console.log(_);
+
+			rxjs.zip(
+				mosaics,
+				mosaicHttp.getMosaics(_),
+				nsHttp.getMosaicsNames(_)
+			)
+			.subscribe(_=>{
+				var mosaicInfos = _[1];
+				var mosaicNames = _[2]
+
+				$("#account_info").empty();
+				$("#mosaic_transfer").empty();
+
+				for(var i of _[0]){
+
+					console.log(i.id.toHex());
+					var mosaicInfo = mosaicInfos.filter(function(item, index){
+					  if (item.id.toHex() == i.id.toHex()) return true;
+					});
+					var mosaicName = mosaicNames.filter(function(item, index){
+					  if (item.mosaicId.toHex() == i.id.toHex()) return true;
+					});
+			//		console.log(mosaicName[0].names[0].name);
+					if (mosaicName[0].names[0]){
+						mosaicLabel = mosaicName[0].names[0].name;
+					}else{
+						mosaicLabel = mosaicName[0].mosaicId.toHex();
+					}
+					console.log(mosaicName);
+
+					$("#account_info").append("<dt>[" + mosaicLabel + "]</dt><dd>" + dispAmount(i.amount.toString(),mosaicInfo[0].divisibility) + "</dd>");
+//					$("#mosaic_transfer").append("<option id='" + mosaicName[0].mosaicId.toHex() + "’>" + mosaicLabel + "</option>");
+					$('#mosaic_transfer').append($('<option>').html(mosaicLabel).val(mosaicName[0].mosaicId.toHex() + "," + mosaicInfo[0].divisibility));
+				}
+			});
+
+			$('#div3').collapse('show');
+			$('#spinner_faucet').collapse('hide')
+		},err => console.log(err));
+	}
+
+	const assetHttp = accountHttp.getAccountInfo(assetPublicAccount.address)
+	const assetListener = listener.confirmed(assetPublicAccount.address)
+	.pipe(
+		op.delay(1000),
+		op.mergeMap(x=>accountHttp.getAccountInfo(assetPublicAccount.address)),
+//		op.mergeMap(x=>assetHttp),
+
+	)
+
+	accountSubscribe(assetHttp,mosaicIdSubscribe);
+	accountSubscribe(assetListener,mosaicIdSubscribe2);
+
+	//未承認トランザクション受信（スピナー回す）
+	//TODO: アグリゲートトランザクション未対応
+	console.log("listener set:"+ assetPublicAccount.address.plain());
+	listener.unconfirmedAdded(assetPublicAccount.address)
+	.pipe(
+		op.filter((tx) => tx.mosaics !== undefined),
+		op.mergeMap(_=>{
+			console.log(_);
+			return _.mosaics;
+		}),
+		op.filter(_ => _.id.toHex() === CURRENCY)
+	)
+	.subscribe(_=> {
+		console.log("unconfirmed")
+		$('#spinner_faucet').collapse('show')
+	},err => console.error(err));
+
+	const contactQR = new qr.ContactQR("xempage.contact.1",assetPublicAccount);
+	contactQR.toBase64().subscribe(x => {
+		$('#qr_contact').attr('src',x);
+		$('#text_contact').text(assetPublicAccount.address.plain());
+	});
+}
+
+//アグリゲートボンデッドトランザクション
+function exeAggBondedTx(metaTx,targetPublicAccount,signer,callback,final){
+
+	const aggregateTx = nem.AggregateTransaction.createBonded(
+		nem.Deadline.create(),
+		[
+			metaTx.toAggregate(assetPublicAccount)
+		],
+		nem.NetworkType.TEST_NET,[],
+		nem.UInt64.fromUint(2000000)
+	);
+	const signedAggregateTx = signer.sign(aggregateTx, GENERATION_HASH);
+
+	const hashLockTx = nem.HashLockTransaction.create(
+		nem.Deadline.create(),
+		new nem.Mosaic(new nem.MosaicId(CURRENCY),nem.UInt64.fromUint(10000000)),
+		nem.UInt64.fromUint(480),
+		signedAggregateTx,
+		nem.NetworkType.TEST_NET,
+		nem.UInt64.fromUint(2000000)
+	);
+
+	const aggregateLockTx = nem.AggregateTransaction.createComplete(
+		nem.Deadline.create(),
+		[hashLockTx.toAggregate(assetPublicAccount)],
+		nem.NetworkType.TEST_NET,[],
+		nem.UInt64.fromUint(100000)
+	);
+
+	const signedLockTx = signer.sign(aggregateLockTx, GENERATION_HASH);
+	delete signer;
+
+	const signedAggregateHashLock =  {
+		aggregate: signedAggregateTx,
+		hashLock: signedLockTx,
+	};
+
+	console.log(NODE + "/transactionStatus/" + signedAggregateTx.hash);
+	console.log(NODE + "/transactions/confirmed/" + signedAggregateTx.hash);
+
+	console.log(NODE + "/transactionStatus/" + signedLockTx.hash);
+	console.log(NODE + "/transactions/confirmed/" + signedLockTx.hash);
+
+	transactionService.announceHashLockAggregateBonded(
+		signedAggregateHashLock.hashLock,
+		signedAggregateHashLock.aggregate,
+		listener
+
+	).subscribe(aggTx => {
+
+		//targetアカウントを監視する//
+		const transactionObservable = listener.confirmed(targetPublicAccount.address);
+		const errorObservable = listener.status(targetPublicAccount.address, aggTx.transactionInfo.hash);
+		rxjs.merge(transactionObservable, errorObservable)
+		.pipe(
+			op.first(),
+			op.map((errorOrTransaction) => {
+				if (errorOrTransaction.constructor.name === "TransactionStatusError") {
+					throw new Error(errorOrTransaction.code);
+				} else {
+					return errorOrTransaction;
+				}
+			}),
+		)
+		.subscribe(tx => {
+			callback(tx);
+		},err =>{
+			alert(err);
+			console.error(err);
+		}).add(()=>final());
+		////////////////////////////////////////////////
+	});
+}
+
+function exeTransfer(targetAddress,divId,message){
+
+	mosaicValue = $("#mosaic_transfer").val().split(",");
+
+	const tx = nem.TransferTransaction.create(
+		nem.Deadline.create(),
+		targetAddress,
+		[
+			new nem.Mosaic(
+				new nem.MosaicId(mosaicValue[0]),
+				nem.UInt64.fromUint(Number($("#amount_transfer").val()) * Math.pow(10,Number(mosaicValue[1] )))
+			)
+		],
+		nem.PlainMessage.create(message),
+		nem.NetworkType.TEST_NET,
+		nem.UInt64.fromUint(100000)
+	);
+
+	const aggregateTx = nem.AggregateTransaction.createComplete(
+		nem.Deadline.create(),
+		[tx.toAggregate(assetPublicAccount)],
+		nem.NetworkType.TEST_NET,[],
+		nem.UInt64.fromUint(100000)
+	);
+
+	const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
+	const signedTx = signerQR.account.sign(aggregateTx,GENERATION_HASH);
+	delete signerQR;
+
+	$('#spinner_'+divId).collapse('show');
+
+	const txHttp = new nem.TransactionHttp(NODE);
+	txHttp.announce(signedTx)
+	.pipe(
+		op.mergeMap(_=> assetSignedTxConfirmed(signedTx.hash))
+	)
+	.subscribe(function(_){
+
+		$('#confirmed_' + divId + ' ul')
+		.append('<li><a target="_blank" href="' + EXPLORER + '/transactions/' + signedTx.hash + '">エクスプローラーで確認</a></li>');
+
+	},err => {
+		alert(err);
+		console.error(err);
+	}).add(() => $('#spinner_' + divId).collapse('hide'));
+
+	console.log(NODE + "/transactionStatus/" + signedTx.hash);
+	console.log(NODE + "/transactions/confirmed/" + signedTx.hash);
+}
+
+//譲渡
+function exeHandover(targetPulicKey){
+
+	const targetPublicAccount = nem.PublicAccount.createFromPublicKey(targetPulicKey,nem.NetworkType.TEST_NET)
+	const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
+
+	var msigTx;
+	if(signerQR.account.publicKey === assetPublicAccount.publicKey){
+
+		//初譲渡（所有化）
+		msigTx = nem.MultisigAccountModificationTransaction.create(
+			nem.Deadline.create(),
+			1,1,[targetPublicAccount.address],[],nem.NetworkType.TEST_NET
+		);
+
+	}else{
+
+		//再譲渡(所有移転)
+		msigTx = nem.MultisigAccountModificationTransaction.create(
+			nem.Deadline.create(),
+			0,0,[targetPublicAccount.address],[signerQR.account.address],nem.NetworkType.TEST_NET
+		);
+	}
+
+	$('#spinner_handover').collapse('show');
+	exeAggBondedTx(msigTx,targetPublicAccount,signerQR.account,function(){
+
+		alert("譲渡完了しました");
+		delete signerQR;
+	},function(){$('#spinner_handover').collapse('hide')});
+}
+
+//■■■CONTROLLER■■■
+
+$("#restore").click(function(){ //復元
+
+	if($("#use_saved_qr:checked").val()){
+//		scanData.innerText = localStorage.getItem('signerJSON') ;
+		restoreAccount(localStorage.getItem('signerJSON'));
+		showAccountQR()
+	}else{
+		$('#modal-label').text("復元したいQRコードをスキャンしてください")
+		$('#div-ns').collapse('hide');
+		$('#modal-qrscan').modal('show');
+
+		startVideo("");
+
+	}
+});
+
+//タブ選択時
+$(".nav-item a").click( function(e){
+
+	if( this.href.indexOf("tab_transfer") > 0){
+		$('#div-ns').collapse('show');
+		$('#modal-label').text("送信先のQRコードをスキャンしてください")
+		$('#modal-qrscan').modal('show');
+		startVideo("transfer");
+
+	}else if(this.href.indexOf("tab_handover" ) > 0){
+
+		$('#div-ns').collapse('show');
+		$('#modal-label').text("譲渡先のQRコードをスキャンしてください")
+		$('#modal-qrscan').modal('show');
+		startVideo("handover");
+
+	}else{
+		stopVideo();
+	}
+});
+
+$('#modal-qrscan').on('hide.bs.modal', function (e) {	//スキャンモーダルが閉じられた時
+
+	stopVideo();
+	canvas.clearRect(0, 0, canvasElement.width, canvasElement.height);
+	$('#file_image').val("");
+	scanData.innerText = "";
+});
+
+//モーダルウィンドウOKクリック時
+$("#modal_ok").click(function(){
+
+	$('#scan_data_confirm').text(scanData.innerText);
+	const jsonData = JSON.parse(scanData.innerText).data;
+
+	if(currentTab == "tab_transfer"){	//送信
+
+		if(jsonData.publicKey === undefined){
+			$('#scan_data_transfer_address').text(jsonData.address);
+
+		}else{
+//			$('#scan_data_transfer').text(jsonData.publicKey);
+			const targetPublicAccount = nem.PublicAccount.createFromPublicKey(jsonData.publicKey,nem.NetworkType.TEST_NET)
+			$('#scan_data_transfer_address').text(targetPublicAccount.address.plain());
+
+		}
+
+	}else if(currentTab == "tab_handover"){	//譲渡
+
+		$('#scan_data_handover').text(jsonData.publicKey);
+
+	}else if(currentTab == "tab_"){	//復元
+
+		restoreAccount(scanData.innerText);
+	}
+});
+
+function restoreAccount(textQR){
+
+	try{
+		const signerQR = qr.AccountQR.fromJSON(textQR,$("#pass").val());
+		//QRコードライブラリのAccountクラス使用を避けるため、Symbol-sdkのAccountクラスに置き換える
+		assetPublicAccount = nem.PublicAccount.createFromPublicKey(
+			signerQR.account.publicKey,nem.NetworkType.TEST_NET
+		);
+		setSignerListener(assetPublicAccount);
+		signerQR.toBase64().subscribe(x => {
+			$('#div1').collapse('hide');
+			$('#div2').collapse('show');
+//				$('#qr_account').attr('src',x);
+		});
+		signerJSON = signerQR.toJSON();
+		delete signerQR;
+	}
+	catch (e) {
+		console.log(e);
+		return false;
+	}
+
+	const appendList = function(publicKey,name){
+		$('#list-msig ul')
+		.append('<button type="button" publicKey="'
+		+ publicKey
+		+'" data-toggle="msig" class="button-msig list-group-item list-group-item-action">'
+		+ name
+		+ '</button>'
+		);
+	};
+
+	//マルチシグ保有調査
+	multisigHttp.getMultisigAccountInfo(assetPublicAccount.address)
+	.subscribe(_=>{
+
+		if(_.multisigAddresses.length > 0){
+
+			appendList(assetPublicAccount.publicKey,"メインアカウント");
+			accountHttp.getAccountsInfo(_.multisigAddresses)
+			.subscribe(items => {
+
+				for (item of items) {
+					appendList(item.publicKey,item.address.plain());
+				}
+			})
+			$('#modal-msig').modal('show');
+		}else{
+			if(_.cosignatories.length > 0){
+				alert("すでに譲渡されたアカウントです。");
+			}
+			showAccountQR();
+		}
+	},
+	err=>{
+		if(err.toString().indexOf("ResourceNotFound")  > 0){
+			showAccountQR();
+		}else{
+			alert(err);
+		}
+	},
+	()=>$('#div3').collapse('show'));
+}
+
+
+$("#list-msig").on("click",".button-msig", function() {	//マルチシグ選択
+
+	$('#modal-msig').modal('hide');
+	assetPublicAccount = nem.PublicAccount.createFromPublicKey($(this).attr("publicKey"),nem.NetworkType.TEST_NET);
+	showAccountQR();
+});
+
+$("#create").click(function(){ //作成
+
+	const asset = nem.Account.generateNewAccount(nem.NetworkType.TEST_NET);
+	console.log(asset);
+	assetPublicAccount = asset.publicAccount;
+	setSignerListener(assetPublicAccount);
+
+	const signerQR = new qr.AccountQR(asset,$("#pass").val(),nem.NetworkType.TEST_NET);
+	signerQR.toBase64().subscribe(x =>{
+		showAccountQR();
+		$('#div1').collapse('hide');
+//		$('#div2').collapse('show');
+		$('#div3').collapse('show');
+//		$('#qr_account').attr('src',x);
+	});
+	signerJSON = signerQR.toJSON();
+
+	var msg = "アカウント情報を保存しますか？";
+	if(localStorage.getItem('signerJSON') !== null){
+		msg += "\n以前に保存した情報は上書きされます。";
+	}
+
+	if(window.confirm(msg)){
+		localStorage.setItem('signerJSON',signerJSON);
+	}
+
+	delete asset;
+	delete signerQR;
+});
+
+$("#button_namespace").click(function(){
+
+	namespaceId = new nem.NamespaceId('xembook1');
+	namespaceHttp = repo.createNamespaceRepository();
+
+	namespaceHttp
+	    .getNamespace(namespaceId)
+	    .subscribe((namespaceInfo) => {
+			console.log(namespaceInfo)
+			scanData.innerText = '{"v":3,"type":1,"data":{"name":"xempage.contact.1","address":"' + namespaceInfo.ownerAddress.plain() + '"}}'
+		}, (err) => console.error(err));
+});
+
+$("#button_address").click(function(){
+
+	scanData.innerText = '{"v":3,"type":1,"data":{"name":"xempage.contact.1","address":"' + $("#text_address").val() + '"}}'
+
+
+});
+
+
+$('#file_image'		).change(function(e){scanFileImage();});
+$('#file_confirm'	).change(function(e){setFileHash('confirm')});
+$('#file_selfsign'	).change(function(e){setFileHash('selfsign')});
+$("#button_handover").click(function(){exeHandover($('#scan_data_handover').text())});
+//$("#button_transfer").click(function(){exeTransfer(assetPublicAccount.address,"transfer",$('#message_transfer').val());});
+$("#button_transfer").click(function(){exeTransfer(nem.Address.createFromRawAddress($('#scan_data_transfer_address').text()),"transfer",$('#message_transfer').val());});
+$("#button_faucet"	).click(function(){window.open(FAUCET + "/?recipient=" + assetPublicAccount.address.plain() + "&amount=20","_blank")});
+$("#button_faucet2"	).click(function(){window.open(FAUCET + "/?recipient=" + assetPublicAccount.address.plain() + "&amount=20","_blank")});
+$("#button_qr"	).click(function(){
+	const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
+	signerQR.toBase64().subscribe(x =>{
+		$('#qr_account').attr('src',x);
+		$('#qr_key').text(signerQR.account.privateKey);
+		$('#div-setting').collapse('show');
+
+	});
+
+});
+
+
+$("#modal_ns").click(function(){
+	$('#div-qrscan').collapse('show');
+	$('#div-qrscan-address').collapse('hide');
+	console.log($('#div-qrscan').css("visibility"));
+	console.log($('#div-qrscan-address').css("visibility"));
+
+
+});
+
+$("#modal_address").click(function(){
+	$('#div-qrscan-address').collapse('show');
+	$('#div-qrscan').collapse('hide');
+});
+
+
+if(localStorage.getItem('signerJSON') == null){
+
+	$('#use_saved_qr').prop('checked', false);
+
+}else{
+	$('#div_use_saved_qr').collapse('show');
+
+	$('#use_saved_qr').prop('checked', true);
+}
+
+
+$('#div1').collapse('show');//アプリケーション開始
+})</script>
+</body>
+</html>
