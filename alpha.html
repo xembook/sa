@@ -195,9 +195,9 @@
 <script src="xembook-tools.js"></script>
 <script>$(function() {
 
-const SYMBOL_EPOCH = 1573430400;
-const CURRENCY = "5B66E76BECAD0860";
-const GENERATION_HASH = "6C1B92391CCB41C96478471C2634C111D9E989DECD66130C0430B5B8D20117CD";
+const SYMBOL_EPOCH = 1616694977;
+const CURRENCY = "091F837E059AE13C";
+const GENERATION_HASH = "3B5E1FA6445653C971A50687E75E6D09FB30481055E3990C84B25E9222DC1155";
 
 
 //const NODE = 'https://sym-test963.opening-line.jp:3001';
@@ -207,8 +207,8 @@ const GENERATION_HASH = "6C1B92391CCB41C96478471C2634C111D9E989DECD66130C0430B5B
 //const NODE = 'http://api-01.ap-northeast-1.0.10.0.x.symboldev.network:3000';
 const NODE = 'https://sym-test.opening-line.jp:3001';
 
-const FAUCET   = 'http://faucet-0.10.0.x-01.symboldev.network';
-const EXPLORER = 'http://explorer-0.10.0.x-01.symboldev.network';
+const FAUCET   = 'http://faucet.testnet.symboldev.network';
+const EXPLORER = 'http://explorer.testnet.symboldev.network';
 
 const nem  = require("/node_modules/symbol-sdk");
 const qr   = require("/node_modules/symbol-qr-library");
@@ -306,7 +306,13 @@ function startVideo(divId){
 	canvasElement = document.getElementById("canvas");
 	canvas		  = canvasElement.getContext("2d");
 
-	navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
+	navigator.mediaDevices.getUserMedia({
+		video: {
+			width:960,height:720,
+			facingMode: "environment"
+		}
+	})
+	.then(function(stream) {
 		video.srcObject = stream;
 		window.localStream = stream;
 		video.setAttribute("playsinline", true);
