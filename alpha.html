@@ -139,8 +139,8 @@
 							</span>
 						</label>
 					</span>
-					<canvas id="canvas" hidden></canvas>
 				</div>
+				<canvas id="canvas"  width="100%" hidden></canvas>
 
 
 				<div class="collapse" id="div-qrscan">
@@ -280,8 +280,8 @@ function tick() {
 	if(!isMovieScanning){return;}
 	if (video.readyState === video.HAVE_ENOUGH_DATA) {
 		canvasElement.hidden = false;
-		canvasElement.width  = 450;
-		canvasElement.height = 450 * video.videoHeight / video.videoWidth;
+		canvasElement.width  = $('#modal-qrscan').width() * 0.9;
+		canvasElement.height = $('#modal-qrscan').width() * 0.9 * video.videoHeight / video.videoWidth;
 		getCodeInfo(video);
 	}
 	requestAnimationFrame(tick);
