@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0">
+<style type="text/css">
+	video {max-width:100%;}
+
+</style>
 
 <link rel="stylesheet"
 	href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
@@ -308,7 +312,6 @@ function startVideo(divId){
 
 	navigator.mediaDevices.getUserMedia({
 		video: {
-			width:450,height:450,
 			facingMode: "environment"
 		}
 	})
