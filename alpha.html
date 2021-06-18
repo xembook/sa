@@ -72,15 +72,11 @@
 				<br>
 				<div>
 					<button type="button" id="button_save" class="btn btn-primary">
-						アカウントを端末に保存
+						アカウント保存
 					</button>
-				</div>
-				<div>
 					<button type="button" id="button_change_pass" class="btn btn-primary">
 						パスフレーズ変更
 					</button>
-				</div>
-				<div>
 					<button type="button" id="button_qr" class="btn btn-primary">
 						鍵情報表示
 					</button>
@@ -270,8 +266,8 @@ function tick() {
 	if(!isMovieScanning){return;}
 	if (video.readyState === video.HAVE_ENOUGH_DATA) {
 		canvasElement.hidden = false;
-		canvasElement.width  = $('#modal-qrscan').width() * 0.9;
-		canvasElement.height = $('#modal-qrscan').width() * 0.9 * video.videoHeight / video.videoWidth;
+		canvasElement.width  = $('.modal-content').width() * 0.9;
+		canvasElement.height = $('.modal-content').width() * 0.9 * video.videoHeight / video.videoWidth;
 		getCodeInfo(video);
 	}
 	requestAnimationFrame(tick);
