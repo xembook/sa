@@ -54,7 +54,11 @@
 			</div>
 			<div id="tab_transfer" class="tab-pane"><!-- 送信 -->
 				<br>
+				<dl id="transfer_cosigners"></dl>
+				<dl id="transfer_txtype"></dl>
+
 				<dl id="transfer_info"></dl>
+
 				<div>
 					<button type="button" id="button_transfer" class="btn btn-primary">
 						<span id="spinner_transfer" class="collapse spinner-border spinner-border-sm" role="status"></span>
@@ -556,10 +560,11 @@ function showAccountQR(){
 //function exeAggBondedTx(signer,callback,final){
 function exeAggBondedTx(){
 
+
 	const jsonData = JSON.parse(scanData.innerText).data;
 	var aggregateTx = nem.TransactionMapping.createFromPayload(jsonData.payload)
 	aggregateTx.deadline = nem.Deadline.create(SYMBOL_EPOCH);
-	aggregateTx = aggregateTx.setMaxFeeForAggregate(100, 1);
+	aggregateTx = aggregateTx.setMaxFeeForAggregate(100, Number($("#transfer_cosigners").text()) - 1);
 	console.log(aggregateTx);
 	const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
 	const signer = nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,nem.NetworkType.TEST_NET);
@@ -776,17 +781,36 @@ $("#modal_ok").click(function(){
 
 	if(currentTab == "tab_transfer"){	//送信
 
-		const aggTx = nem.TransactionMapping.createFromPayload(jsonData.payload)
-		for(const tx of aggTx.innerTransactions){
+		const aggTx = nem.TransactionMapping.createFromPayload(jsonData.payload);
+		payloadType = nem.TransactionType[aggTx.type];
+		cosigners = [];
+		if("innerTransactions" in aggTx){
+			for(const tx of aggTx.innerTransactions){
 
+				if(cosigners.find(signer => signer === tx.signer.address.plain()) === undefined){
+					cosigners.push(tx.signer.address.plain());
+				}
+				var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
+				var ddTx = "<dd>送信者:" + tx.signer.address.pretty().slice(0,14) + "..." + tx.signer.address.pretty().slice(-3) + "</dd>";
+				if("recipientAddress" in tx){
+					ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
+				}
+				$("#transfer_info").append(dtTx + ddTx);
+			}
+		}else{
+			const tx = aggTx;
 			var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
 			var ddTx = "<dd>送信者:" + tx.signer.address.pretty().slice(0,14) + "..." + tx.signer.address.pretty().slice(-3) + "</dd>";
 			if("recipientAddress" in tx){
 				ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
 			}
 			$("#transfer_info").append(dtTx + ddTx);
+			
 		}
 
+		$("#transfer_cosigners").text(cosigners.length);
+		$("#transfer_txtype").text(payloadType);
+		console.log(cosigners)
 	}else if(currentTab == "tab_"){	//復元
 
 		//スキャンでログインした場合
@@ -916,7 +940,12 @@ $("#button_transfer").click(
 			$('#message_transfer').val()
 		);
 */
-		exeAggBondedTx();
+
+		if($("#transfer_txtype").text()=== "AGGREGATE_BONDED"){
+			exeAggBondedTx();
+		}else{
+			exeTransfer();
+		}
 
 /*
 		exeAggBondedTx(msigTx,targetPublicAccount,signerQR.account,
