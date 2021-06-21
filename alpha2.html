@@ -178,11 +178,7 @@
 
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.min.js"></script>
-<script
-	src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
-	integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
-	crossorigin="anonymous">
-</script>
+<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
 <script
 	src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
 	integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
@@ -190,56 +186,28 @@
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
 <script src="jsQR.js"></script>
+
 <script src="symbol-sdk-pack-1.0.1.js"></script>
-<script src="xembook-tools.js"></script>
+<script src="https://xembook.github.io/xembook/xembook_config.js"></script>
+<script>
+//var nodelist = NODES;
+//var explorer = EXPLORER;
+const nodelist = TEST_NODES;
+const explorer = TEST_EXPLORER;
+const FAUCET   = 'http://faucet.testnet.symboldev.network';
+
+</script>
+<script src="xembook-core.js"></script>
+<!--<script src="xembook-tools.js"></script>-->
 <script>$(function() {
 
-const SYMBOL_EPOCH = 1616694977;
-const CURRENCY = "091F837E059AE13C";
-const GENERATION_HASH = "3B5E1FA6445653C971A50687E75E6D09FB30481055E3990C84B25E9222DC1155";
+//impl from core
+function onListenerResume(){
 
-
-const NODE = 'https://sym-test.opening-line.jp:3001';
-const FAUCET   = 'http://faucet.testnet.symboldev.network';
-const EXPLORER = 'http://explorer.testnet.symboldev.network';
-
-const nem  = require("/node_modules/symbol-sdk");
-const qr   = require("/node_modules/symbol-qr-library");
-const op   = require("/node_modules/rxjs/operators");
-const rxjs = require("/node_modules/rxjs");
-const repo = new nem.RepositoryFactoryHttp(NODE, nem.NetworkType.TEST_NET,GENERATION_HASH);
-
-// dummy for script kiddy
-var bob = nem.Account.generateNewAccount(nem.NetworkType.TEST_NET);
-var privateKey = bob.privateKey;
-var keyPair = bob.keyPair;
-var secret = keyPair.privateKey;
-
-const nsHttp = new nem.NamespaceHttp(NODE);
-const txHttp  = new nem.TransactionHttp(NODE);
-const metaHttp = new nem.MetadataHttp(NODE);
-const blockHttp = new nem.BlockHttp(NODE);
-const receiptHttp = new nem.ReceiptHttp(NODE);
-const accountHttp = new nem.AccountHttp(NODE);
-const multisigHttp = new nem.MultisigHttp(NODE);
-const mosaicHttp = new nem.MosaicHttp(NODE);
-
-const transactionService = new nem.TransactionService(txHttp, receiptHttp);
-
-const wsEndpoint = NODE.replace('http', 'ws') + "/ws";
-const listener = new nem.Listener(wsEndpoint,nsHttp,WebSocket);
-
-listener.open().then(() => {
-	setInterval(function(){
-		listener.newBlock();
-	}, 30000);
-});
-
-listener.webSocket.onclose = function(){
-	listener.open().then(() => {
-		showAccountQR();
-	});
+	showAccountQR();
 }
+
+
 
 //グローバル変数
 var assetPublicAccount;	//操作対象アカウント（マルチシグの場合は操作される対象のアカウント）
@@ -380,7 +348,7 @@ function setSignerListener(cosignerAccount){
 			op.filter(_ => !_.signedByAccount(cosignerAccount.address))
 		).subscribe(_=>{
 
-			txHttp.getTransactionsById([_.transactionInfo.hash],nem.TransactionGroup.Partial)
+			txRepo.getTransactionsById([_.transactionInfo.hash],nem.TransactionGroup.Partial)
 			.pipe(
 				op.filter(aggTx => aggTx.length > 0)
 			)
@@ -473,8 +441,8 @@ function showAccountQR(){
 
 			rxjs.zip(
 				mosaics,
-				mosaicHttp.getMosaics(_),
-				nsHttp.getMosaicsNames(_)
+				mosaicRepo.getMosaics(_),
+				nsRepo.getMosaicsNames(_)
 			)
 			.subscribe(_=>{
 				var mosaicInfos = _[1];
@@ -509,13 +477,12 @@ function showAccountQR(){
 			$('#spinner_faucet').collapse('hide');
 		},err => console.log(err));
 
-
 		$('#div3').collapse('show');
 //		$('#spinner_faucet').collapse('hide')
 
 	}
 
-	const assetHttp = accountHttp.getAccountInfo(assetPublicAccount.address)
+	const assetHttp = accountRepo.getAccountInfo(assetPublicAccount.address)
 	.pipe(
 		opMergeMosaics()
 	);
@@ -523,7 +490,7 @@ function showAccountQR(){
 	const assetListener = listener.confirmed(assetPublicAccount.address)
 	.pipe(
 		op.delay(1000),
-		op.mergeMap(x=>accountHttp.getAccountInfo(assetPublicAccount.address)),
+		op.mergeMap(x=>accountRepo.getAccountInfo(assetPublicAccount.address)),
 		op.first(),
 		opMergeMosaics(),
 		op.repeat()
@@ -542,7 +509,7 @@ function showAccountQR(){
 			console.log(_);
 			return _.mosaics;
 		}),
-		op.filter(_ => _.id.toHex() === CURRENCY)
+		op.filter(_ => _.id.toHex() === currencyId || _.id.toHex() === currencyNamespaceId)
 	)
 	.subscribe(_=> {
 		console.log("unconfirmed")
@@ -563,37 +530,38 @@ function exeAggBondedTx(){
 
 	const jsonData = JSON.parse(scanData.innerText).data;
 	var aggregateTx = nem.TransactionMapping.createFromPayload(jsonData.payload)
-	aggregateTx.deadline = nem.Deadline.create(SYMBOL_EPOCH);
+	aggregateTx.deadline = nem.Deadline.create(epochAdjustment);
 	aggregateTx = aggregateTx.setMaxFeeForAggregate(100, Number($("#transfer_cosigners").text()) - 1);
 	console.log(aggregateTx);
 	const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
-	const signer = nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,nem.NetworkType.TEST_NET);
+	const signer = nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType);
 	delete signerQR;
-	const signedTx = signer.sign(aggregateTx,GENERATION_HASH);
+	const signedTx = signer.sign(aggregateTx,generationHash);
 
 	$('#spinner_transfer').collapse('show');
 
 
 
-	const signedAggregateTx = signer.sign(aggregateTx, GENERATION_HASH);
+	const signedAggregateTx = signer.sign(aggregateTx, generationHash);
 	console.log(signedAggregateTx.hash);
 	const hashLockTx = nem.HashLockTransaction.create(
-		nem.Deadline.create(SYMBOL_EPOCH),
-		new nem.Mosaic(new nem.MosaicId(CURRENCY),nem.UInt64.fromUint(10000000)),
+		nem.Deadline.create(epochAdjustment),
+		networkCurrency.createRelative(10),
+//		new nem.Mosaic(new nem.MosaicId(CURRENCY),nem.UInt64.fromUint(10000000)),
 		nem.UInt64.fromUint(480),
 		signedAggregateTx,
-		nem.NetworkType.TEST_NET,
+		networkType,
 		nem.UInt64.fromUint(2000000)
 	);
 
 	const aggregateLockTx = nem.AggregateTransaction.createComplete(
-		nem.Deadline.create(SYMBOL_EPOCH),
+		nem.Deadline.create(epochAdjustment),
 		[hashLockTx.toAggregate(assetPublicAccount)],
-		nem.NetworkType.TEST_NET,[],
+		networkType,[],
 		nem.UInt64.fromUint(100000)
 	);
 
-	const signedLockTx = signer.sign(aggregateLockTx, GENERATION_HASH);
+	const signedLockTx = signer.sign(aggregateLockTx, generationHash);
 	delete signer;
 
 
@@ -606,36 +574,6 @@ function exeAggBondedTx(){
 	console.log(NODE + "/transactions/confirmed/" + signedAggregateTx.hash);
 	console.log(NODE + "/transactionStatus/" + signedLockTx.hash);
 	console.log(NODE + "/transactions/confirmed/" + signedLockTx.hash);
-
-
-/*
-	txHttp.announce(signedLockTx)
-	.pipe(
-		op.mergeMap(_=> signedTxConfirmed(assetPublicAccount.address, signedLockTx.hash))
-	)
-	.subscribe(function(_){
-
-		$('#confirmed_transfer ul')
-		.append('<li><a target="_blank" href="' + EXPLORER + '/transactions/' + signedTx.hash + '">エクスプローラーで確認</a></li>');
-
-
-		txHttp.announceAggregateBonded(signedAggregateTx)
-		.pipe(
-			op.mergeMap(_=> signedTxConfirmed(assetPublicAccount.address, signedAggregateTx.hash))
-		)
-		.subscribe(function(_){
-
-			$('#confirmed_transfer ul')
-			.append('<li><a target="_blank" href="' + EXPLORER + '/transactions/' + signedTx.hash + '">エクスプローラーで確認</a></li>');
-		}).add(() => $('#spinner_transfer').collapse('hide'));
-
-
-	},err => {
-		alert(err);
-		console.error(err);
-	});
-*/
-
 
 	transactionService.announceHashLockAggregateBonded(
 		signedAggregateHashLock.hashLock,
@@ -682,7 +620,7 @@ function exeTransfer(targetAddress,divId,message){
 	mosaicValue = $("#mosaic_transfer").val().split(",");
 
 	const tx = nem.TransferTransaction.create(
-		nem.Deadline.create(SYMBOL_EPOCH),
+		nem.Deadline.create(epochAdjustment),
 		targetAddress,
 		[
 			new nem.Mosaic(
@@ -691,28 +629,27 @@ function exeTransfer(targetAddress,divId,message){
 			)
 		],
 		nem.PlainMessage.create(message),
-		nem.NetworkType.TEST_NET,
+		networkType,
 		nem.UInt64.fromUint(100000)
 	);
 
 	const aggregateTx = nem.AggregateTransaction.createComplete(
-		nem.Deadline.create(SYMBOL_EPOCH),
+		nem.Deadline.create(epochAdjustment),
 		[tx.toAggregate(assetPublicAccount)],
-		nem.NetworkType.TEST_NET,[],
+		networkType,[],
 		nem.UInt64.fromUint(100000)
 	);
 
 	const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
-	const signer = nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,nem.NetworkType.TEST_NET);
+	const signer = nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType);
 	delete signerQR;
 
-	const signedTx = signer.sign(aggregateTx,GENERATION_HASH);
+	const signedTx = signer.sign(aggregateTx,generationHash);
 	delete signer;
 
 	$('#spinner_'+divId).collapse('show');
 
-	const txHttp = new nem.TransactionHttp(NODE);
-	txHttp.announce(signedTx)
+	txRepo.announce(signedTx)
 	.pipe(
 		op.mergeMap(_=> signedTxConfirmed(assetPublicAccount.address, signedTx.hash))
 	)
@@ -827,7 +764,7 @@ function restoreAccount(textQR){
 	try{
 		const signerQR = qr.AccountQR.fromJSON(textQR,$("#pass").val());
 		assetPublicAccount = (
-			nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,nem.NetworkType.TEST_NET)
+			nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType)
 		).publicAccount;
 
 		setSignerListener(assetPublicAccount);
@@ -855,14 +792,14 @@ function restoreAccount(textQR){
 	};
 
 	//マルチシグ保有調査
-	multisigHttp.getMultisigAccountInfo(assetPublicAccount.address)
+	msigRepo.getMultisigAccountInfo(assetPublicAccount.address)
 	.subscribe(_=>{
 
 		//マルチシグが存在する場合
 		if(_.multisigAddresses.length > 0){
 
 			appendList(assetPublicAccount.publicKey,"メインアカウント");
-			accountHttp.getAccountsInfo(_.multisigAddresses)
+			accountRepo.getAccountsInfo(_.multisigAddresses)
 			.subscribe(items => {
 
 				for (item of items) {
@@ -897,19 +834,19 @@ function restoreAccount(textQR){
 $("#list-msig").on("click",".button-msig", function() {	//マルチシグ選択
 
 	$('#modal-msig').modal('hide');
-	assetPublicAccount = nem.PublicAccount.createFromPublicKey($(this).attr("publicKey"),nem.NetworkType.TEST_NET);
+	assetPublicAccount = nem.PublicAccount.createFromPublicKey($(this).attr("publicKey"),networkType);
 	showAccountQR();
 });
 
 $("#create").click(function(){ //作成
 
-	const asset = nem.Account.generateNewAccount(nem.NetworkType.TEST_NET);
+	const asset = nem.Account.generateNewAccount(networkType);
 	console.log(asset);
 	assetPublicAccount = asset.publicAccount;
 	setSignerListener(assetPublicAccount);
 
-	//const signerQR = new qr.AccountQR(asset,$("#pass").val(),nem.NetworkType.TEST_NET);
-	const signerQR = qr.QRCodeGenerator.createExportAccount(asset.privateKey, nem.NetworkType.MIJIN_TEST, GENERATION_HASH, $("#pass").val())
+	//const signerQR = new qr.AccountQR(asset,$("#pass").val(),networkType);
+	const signerQR = qr.QRCodeGenerator.createExportAccount(asset.privateKey, nem.NetworkType.MIJIN_TEST, generationHash, $("#pass").val())
 
 	signerQR.toBase64().subscribe(x =>{
 		showAccountQR();
@@ -988,7 +925,7 @@ $("#button_change_pass").click(function(){
 		const signerQR = qr.QRCodeGenerator.createExportAccount(
 			oldSignerQR.accountPrivateKey,
 			nem.NetworkType.MIJIN_TEST,
-			GENERATION_HASH,
+			generationHash,
 			window.prompt("新しいパスフレーズを入力してください。", "")
 		);
 
