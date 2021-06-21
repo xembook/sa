@@ -56,7 +56,6 @@
 				<br>
 				<dl id="transfer_cosigners"></dl>
 				<dl id="transfer_txtype"></dl>
-
 				<dl id="transfer_info"></dl>
 
 				<div>
@@ -95,7 +94,6 @@
 					</div>
 				</div>
 			</div>
-
 		</div><!-- tab-content -->
 	</div><!-- div3 -->
 </div>
@@ -119,13 +117,9 @@
 							画像でスキャン<input id="file_image" type="file" style="display:none">
 						</span>
 					</label>
-
 				</div>
 				<canvas id="canvas"  width="100%" hidden></canvas>
-
-
 				<div id="scan_data" class="text-break"></div>
-
 			</div>
 			<div class="modal-footer">
 				<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
@@ -153,30 +147,6 @@
 	</div><!-- /.modal-dialog -->
 </div><!-- /.modal -->
 
-<!-- 通知モーダル -->
-<div class="modal fade" id="modal-notice" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
-	<div class="modal-dialog" role="document">
-		<div class="modal-content">
-			<div class="modal-header">
-				<h5 class="modal-title" id="exampleModalLabel2">お知らせ</h5>
-			</div>
-			<div class="modal-body">
-				<label id="modal-label">未承認のトランザクションがあります。<br>ウォレットで詳細を確認してください。</label>
-
-				<dl id="tx_info"></dl>
-
-			</div>
-			<div class="modal-footer">
-				<button type="button" class="btn btn-primary" data-dismiss="modal"	id="modal_ok">閉じる</button>
-
-			</div><!-- /.modal-footer -->
-		</div><!-- /.modal-content -->
-	</div><!-- /.modal-dialog -->
-</div><!-- /.modal -->
-
-
-
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
 <script
@@ -198,8 +168,7 @@ const FAUCET   = 'http://faucet.testnet.symboldev.network';
 
 </script>
 <script src="xembook-core.js"></script>
-<!--<script src="xembook-tools.js"></script>-->
-<script>$(function() {
+<script>
 
 //impl from core
 function onListenerResume(){
@@ -207,7 +176,10 @@ function onListenerResume(){
 	showAccountQR();
 }
 
+function divShow(){
+	$('#div1').collapse('show');//アプリケーション開始
 
+}
 
 //グローバル変数
 var assetPublicAccount;	//操作対象アカウント（マルチシグの場合は操作される対象のアカウント）
@@ -367,55 +339,20 @@ function setSignerListener(cosignerAccount){
 						$("#tx_info").append(dtTx + ddTx);
 					}
 					$('#tab_transfer_link').click();
-//					$('#modal-notice').modal('show');
 				}
 			});
 		});
-
-/**
-
-		observer.pipe(
-
-			op.filter(_ =>  !_.signedByAccount(cosignerAccount)),
-			op.map(_ => {
-				const signerQR = qr.AccountQR.fromJSON(signerJSON,
-					window.prompt("署名要求があります。パスフレーズをもう一度入力してください", "")
-				);
-				return signerQR.account.signCosignatureTransaction(nem.CosignatureTransaction.create(_));
-			}),
-			op.mergeMap(_ => {
-				return rxjs.of({
-					ignored:txHttp.announceAggregateBondedCosignature(_),
-					hash:_.parentHash
-				});
-			}),
-			op.mergeMap(_=>{
-				console.log(_);
-				return signedTxConfirmed(assetPublicAccount.address,_.hash);
-			})
-		)
-		.subscribe(
-			x => alert("署名完了しました"),
-			err => {
-				alert(err);
-				console.error(err);
-			}
-		);
-
-**/
 	}
 
-/*
 	const bondedListener = listener.aggregateBondedAdded(cosignerAccount.address)
-	const bondedHttp = txHttp.search({address:cosignerAccount.address,group:nem.TransactionGroup.Partial})
+	const bondedRepo = txRepo.search({address:cosignerAccount.address,group:nem.TransactionGroup.Partial})
 	.pipe(
 		op.delay(2000),
 		op.mergeMap(page => page.data)
 	);
 
 	bondedSubscribe(bondedListener);
-	bondedSubscribe(bondedHttp);
-*/
+	bondedSubscribe(bondedRepo);
 }
 
 //アカウント情報表示
@@ -472,17 +409,13 @@ function showAccountQR(){
 				}
 			});
 
-
-//			$('#div3').collapse('show');
 			$('#spinner_faucet').collapse('hide');
 		},err => console.log(err));
 
 		$('#div3').collapse('show');
-//		$('#spinner_faucet').collapse('hide')
-
 	}
 
-	const assetHttp = accountRepo.getAccountInfo(assetPublicAccount.address)
+	const assetRepo = accountRepo.getAccountInfo(assetPublicAccount.address)
 	.pipe(
 		opMergeMosaics()
 	);
@@ -496,7 +429,7 @@ function showAccountQR(){
 		op.repeat()
 	)
 
-	accountSubscribe(assetHttp);
+	accountSubscribe(assetRepo);
 	accountSubscribe(assetListener);
 
 	//未承認トランザクション受信（スピナー回す）
@@ -527,7 +460,6 @@ function showAccountQR(){
 //function exeAggBondedTx(signer,callback,final){
 function exeAggBondedTx(){
 
-
 	const jsonData = JSON.parse(scanData.innerText).data;
 	var aggregateTx = nem.TransactionMapping.createFromPayload(jsonData.payload)
 	aggregateTx.deadline = nem.Deadline.create(epochAdjustment);
@@ -539,8 +471,6 @@ function exeAggBondedTx(){
 	const signedTx = signer.sign(aggregateTx,generationHash);
 
 	$('#spinner_transfer').collapse('show');
-
-
 
 	const signedAggregateTx = signer.sign(aggregateTx, generationHash);
 	console.log(signedAggregateTx.hash);
@@ -564,16 +494,15 @@ function exeAggBondedTx(){
 	const signedLockTx = signer.sign(aggregateLockTx, generationHash);
 	delete signer;
 
-
 	const signedAggregateHashLock =  {
 		aggregate: signedAggregateTx,
 		hashLock: signedLockTx,
 	};
 
-	console.log(NODE + "/transactionStatus/" + signedAggregateTx.hash);
-	console.log(NODE + "/transactions/confirmed/" + signedAggregateTx.hash);
-	console.log(NODE + "/transactionStatus/" + signedLockTx.hash);
-	console.log(NODE + "/transactions/confirmed/" + signedLockTx.hash);
+	console.log(nodeRepo.url + "/transactionStatus/" + signedAggregateTx.hash);
+	console.log(nodeRepo.url + "/transactions/confirmed/" + signedAggregateTx.hash);
+	console.log(nodeRepo.url + "/transactionStatus/" + signedLockTx.hash);
+	console.log(nodeRepo.url + "/transactions/confirmed/" + signedLockTx.hash);
 
 	transactionService.announceHashLockAggregateBonded(
 		signedAggregateHashLock.hashLock,
@@ -586,33 +515,16 @@ function exeAggBondedTx(){
 		.subscribe(function(_){
 
 			$('#confirmed_transfer ul')
-			.append('<li><a target="_blank" href="' + EXPLORER + '/transactions/' + signedTx.hash + '">エクスプローラーで確認</a></li>');
+			.append('<li><a target="_blank" href="' + explorer + '/transactions/' + signedTx.hash + '">エクスプローラーで確認</a></li>');
 
 		},err => {
 			alert(err);
 			console.error(err);
 		}).add(() => $('#spinner_transfer').collapse('hide'));
 
-		console.log(NODE + "/transactionStatus/" + signedTx.hash);
-		console.log(NODE + "/transactions/confirmed/" + signedTx.hash);
-
-
-/*
-
-		.subscribe(tx => {
-			callback(tx);
-		},err =>{
-			alert(err);
-			console.error(err);
-		}).add(()=>final());//callback
-*/
-		////////////////////////////////////////////////
+		console.log(nodeRepo.url + "/transactionStatus/" + signedTx.hash);
+		console.log(nodeRepo.url + "/transactions/confirmed/" + signedTx.hash);
 	});
-
-
-
-
-
 }
 
 function exeTransfer(targetAddress,divId,message){
@@ -656,7 +568,7 @@ function exeTransfer(targetAddress,divId,message){
 	.subscribe(function(_){
 
 		$('#confirmed_' + divId + ' ul')
-		.append('<li><a target="_blank" href="' + EXPLORER + '/transactions/' + signedTx.hash + '">エクスプローラーで確認</a></li>');
+		.append('<li><a target="_blank" href="' + explorer + '/transactions/' + signedTx.hash + '">エクスプローラーで確認</a></li>');
 
 	},err => {
 		alert(err);
@@ -746,7 +658,6 @@ $("#modal_ok").click(function(){
 				ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
 			}
 			$("#transfer_info").append(dtTx + ddTx);
-
 		}
 
 		$("#transfer_cosigners").text(cosigners.length);
@@ -831,14 +742,16 @@ function restoreAccount(textQR){
 	return true;
 }
 
-$("#list-msig").on("click",".button-msig", function() {	//マルチシグ選択
+//マルチシグ選択
+$("#list-msig").on("click",".button-msig", function() {	
 
 	$('#modal-msig').modal('hide');
 	assetPublicAccount = nem.PublicAccount.createFromPublicKey($(this).attr("publicKey"),networkType);
 	showAccountQR();
 });
 
-$("#create").click(function(){ //作成
+//新規作成
+$("#create").click(function(){ 
 
 	const asset = nem.Account.generateNewAccount(networkType);
 	console.log(asset);
@@ -846,7 +759,7 @@ $("#create").click(function(){ //作成
 	setSignerListener(assetPublicAccount);
 
 	//const signerQR = new qr.AccountQR(asset,$("#pass").val(),networkType);
-	const signerQR = qr.QRCodeGenerator.createExportAccount(asset.privateKey, nem.NetworkType.MIJIN_TEST, generationHash, $("#pass").val())
+	const signerQR = qr.QRCodeGenerator.createExportAccount(asset.privateKey, networkType, generationHash, $("#pass").val())
 
 	signerQR.toBase64().subscribe(x =>{
 		showAccountQR();
@@ -868,7 +781,7 @@ $("#create").click(function(){ //作成
 	delete signerQR;
 });
 
-$('#file_image'		).change(function(e){scanFileImage();});
+$('#file_image').change(function(e){scanFileImage();});
 $("#button_transfer").click(
 	function(){
 
@@ -883,6 +796,8 @@ $("#button_transfer").click(
 	}
 );
 $("#button_faucet").click(function(){window.open(FAUCET + "/?recipient=" + assetPublicAccount.address.plain() + "&amount=20","_blank")});
+
+//鍵情報表示
 $("#button_qr").click(function(){
 
 	try{
@@ -892,7 +807,6 @@ $("#button_qr").click(function(){
 			$('#qr_account').attr('src',x);
 			$('#qr_key').text(signerQR.accountPrivateKey);
 			$('#div-setting').collapse('show');
-
 		});
 		delete signerQR;
 	}
@@ -901,9 +815,9 @@ $("#button_qr").click(function(){
 		console.log(e);
 		return false;
 	}
-
 });
 
+//アカウント保存
 $("#button_save").click(function(){
 
 	var msg = "アカウント情報を保存します。";
@@ -916,15 +830,15 @@ $("#button_save").click(function(){
 	}
 });
 
+//パスフレーズ変更
 $("#button_change_pass").click(function(){
-
 
 	try{
 		oldSignerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("現在のパスフレーズを入力してください。", ""));
 
 		const signerQR = qr.QRCodeGenerator.createExportAccount(
 			oldSignerQR.accountPrivateKey,
-			nem.NetworkType.MIJIN_TEST,
+			networkType,
 			generationHash,
 			window.prompt("新しいパスフレーズを入力してください。", "")
 		);
@@ -950,30 +864,16 @@ $("#button_change_pass").click(function(){
 	}
 });
 
-
-
-$("#modal_ns").click(function(){
-	$('#div-qrscan').collapse('show');
-	$('#div-qrscan-address').collapse('hide');
-	console.log($('#div-qrscan').css("visibility"));
-	console.log($('#div-qrscan-address').css("visibility"));
-});
-
-$("#modal_address").click(function(){
-	$('#div-qrscan-address').collapse('show');
-	$('#div-qrscan').collapse('hide');
-});
-
 if(localStorage.getItem('signerJSON') == null){
 
 	$('#use_saved_qr').prop('checked', false);
 
 }else{
+
 	$('#div_use_saved_qr').collapse('show');
 	$('#use_saved_qr').prop('checked', true);
 }
 
-$('#div1').collapse('show');//アプリケーション開始
-})</script>
+</script>
 </body>
 </html>

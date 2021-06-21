@@ -74,8 +74,10 @@ async function listenerKeepOpening(wsEndpoint,nsRepo){
 
 	const d2 = $.Deferred();
 	const repo = await createRepo(d2,nodelist);
-	const d3 = $.Deferred();
-	const repo2 = await createRepo(d3,nodelist);
+
+//	const d3 = $.Deferred();
+//	const repo2 = await createRepo(d3,nodelist);
+
 	txRepo = repo.createTransactionRepository();
 	receiptRepo = repo.createReceiptRepository();
 	chainRepo = repo.createChainRepository();
@@ -84,7 +86,7 @@ async function listenerKeepOpening(wsEndpoint,nsRepo){
 
 	nwRepo = repo.createNetworkRepository();
 //	blockRepo = repo.createBlockRepository();
-	blockRepo = repo2.createBlockRepository();
+	blockRepo = repo.createBlockRepository();
 	accountRepo = repo.createAccountRepository();
 	nodeRepo = repo.createNodeRepository();
 //	tsRepo = repo.createTransactionStatusRepository();
@@ -105,6 +107,9 @@ async function listenerKeepOpening(wsEndpoint,nsRepo){
 
 	currencyNamespaceId = (new nem.NamespaceId("symbol.xym")).id.toHex();
 	latestBlock = (await blockRepo.search({order: nem.Order.Desc}).toPromise()).data[0];
+	
+	divShow();
+	
 })();
 
 function dispAmount(amount,divisibility){
