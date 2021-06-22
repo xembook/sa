@@ -107,9 +107,9 @@ async function listenerKeepOpening(wsEndpoint,nsRepo){
 
 	currencyNamespaceId = (new nem.NamespaceId("symbol.xym")).id.toHex();
 	latestBlock = (await blockRepo.search({order: nem.Order.Desc}).toPromise()).data[0];
-	
+
 	divShow();
-	
+
 })();
 
 function dispAmount(amount,divisibility){
@@ -164,3 +164,20 @@ function getDateId(timeStamp,epoch){
 function paddingDate0(num) {
 	return ( num < 10 ) ? '0' + num  : num;
 };
+
+//選択中アカウントの完了トランザクション検知リスナー
+const signedTxConfirmed = function(address,hash){
+
+	const transactionObservable = listener.confirmed(address);
+	const errorObservable = listener.status(address, hash);
+	return rxjs.merge(transactionObservable, errorObservable).pipe(
+		op.first(),
+		op.map((errorOrTransaction) => {
+			if (errorOrTransaction.constructor.name === "TransactionStatusError") {
+				throw new Error(errorOrTransaction.code);
+			} else {
+				return errorOrTransaction;
+			}
+		}),
+	);
+}
