@@ -515,7 +515,7 @@ function exeTransfer(payload){
 	delete signerQR;
 
 	var tx;
-	if(signer.address.plain() === assetPublicAccount.address.plain()){}
+	if(signer.address.plain() === assetPublicAccount.address.plain()){
 
 		tx = nem.TransactionMapping.createFromPayload(payload);
 		tx.deadline = nem.Deadline.create(epochAdjustment);
@@ -629,7 +629,7 @@ $("#modal_ok").click(function(){
 			//普通のトランザクションの場合
 			const tx = aggTx;
 			var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
-			var ddTx = "<dd>送信者:" + tx.signer.address.pretty().slice(0,14) + "..." + tx.signer.address.pretty().slice(-3) + "</dd>";
+			var ddTx = "<dd>送信者:" + assetPublicAccount.address.pretty().slice(0,14) + "..." + assetPublicAccount.address.pretty().slice(-3) + "</dd>";
 			if("recipientAddress" in tx){
 				ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
 			}
