@@ -169,6 +169,8 @@ const FAUCET   = 'http://faucet.testnet.symboldev.network';
 </script>
 <script src="xembook-core.js"></script>
 <script>
+const qr   = require("/node_modules/symbol-qr-library");
+
 
 //impl from core
 function onListenerResume(){
@@ -176,10 +178,8 @@ function onListenerResume(){
 	showAccountQR();
 }
 
-function divShow(){
-	$('#div1').collapse('show');//アプリケーション開始
-
-}
+//アプリケーション開始
+function startApp(){$('#div1').collapse('show');}
 
 //グローバル変数
 var assetPublicAccount;	//操作対象アカウント（マルチシグの場合は操作される対象のアカウント）
@@ -199,51 +199,423 @@ function appendTxInfo(tx,senderAddress){
 	$("#transfer_info").append(dtTx + ddTx);
 }
 
-//連署要求検知リスナー
-function setSignerListener(cosignerAccount,callback){
+function showAccountQR(){
 
-	var bondedSubscribe = function(observer){
+	var mosaics;
 
-		observer.pipe(
+	//pipeオペレーションの実装
+	const opAccountInfo  = function(){
 
-			//すでに署名済みでない場合
-			op.filter(_ => !_.signedByAccount(cosignerAccount.address))
-		).subscribe(_=>{
+		return 	rxjs.pipe(
+			op.mergeMap(_=>{
+				mosaics = rxjs.of(_.mosaics);
+				return _.mosaics;
+			}),
+			op.map(_ =>  _.id),
+			op.toArray(),
+		);
+	}
 
-			txRepo.getTransactionsById([_.transactionInfo.hash],nem.TransactionGroup.Partial)
-			.pipe(
-				op.filter(aggTx => aggTx.length > 0)
-			)
-			.subscribe(aggTx =>{
+	//subscribe実装
+	const subscribeAccountInfo = function(_){
 
-				//インナートランザクションの署名者に自分が指定されている場合
-				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.equals(cosignerAccount))!= undefined){
+		rxjs.zip(
+			mosaics,
+			mosaicRepo.getMosaics(_),
+			nsRepo.getMosaicsNames(_)
+		)
+		.subscribe(_=>{
+			var mosaicInfos = _[1];
+			var mosaicNames = _[2]
 
-					disableScan = true;
-					txs = aggTx[0].innerTransactions;
-					for(const tx of txs){
-						appendTxInfo(aggTx,tx.signer.address);
-					}
-					//$('#tab_transfer_link').click();
-					callback();
+			$("#account_info").empty();
+
+			for(var i of _[0]){
+
+				console.log(i.id.toHex());
+				var mosaicInfo = mosaicInfos.filter(function(item, index){
+				  if (item.id.toHex() == i.id.toHex()) return true;
+				});
+				var mosaicName = mosaicNames.filter(function(item, index){
+				  if (item.mosaicId.toHex() == i.id.toHex()) return true;
+				});
+				if (mosaicName[0].names[0]){
+					mosaicLabel = mosaicName[0].names[0].name;
+				}else{
+					mosaicLabel = mosaicName[0].mosaicId.toHex();
 				}
-			});
+				console.log(mosaicName);
+
+				$("#account_info").append("<dt>[" + mosaicLabel + "]</dt><dd>" + dispAmount(i.amount.toString(),mosaicInfo[0].divisibility) + "</dd>");
+			}
+
+			$('#spinner_faucet').collapse('hide');
+			$('#div3').collapse('show');
 		});
 	}
 
-	const bondedListener = listener.aggregateBondedAdded(cosignerAccount.address)
-	const bondedRepo = txRepo.search({address:cosignerAccount.address,group:nem.TransactionGroup.Partial})
-	.pipe(
-		op.delay(2000),
-		op.mergeMap(page => page.data)
-	);
+	setAccountObserver(assetPublicAccount.address,opAccountInfo,subscribeAccountInfo);
 
-	bondedSubscribe(bondedListener);
-	bondedSubscribe(bondedRepo);
+		
+	//未承認トランザクション受信（スピナー回す）
+	//TODO: アグリゲートトランザクション未対応
+	console.log("listener set:"+ assetPublicAccount.address.plain());
+	listener.unconfirmedAdded(assetPublicAccount.address)
+	.pipe(
+		op.filter((tx) => tx.mosaics !== undefined),
+		op.mergeMap(_=>{
+			console.log(_);
+			return _.mosaics;
+		}),
+		op.filter(_ => _.id.toHex() === currencyId || _.id.toHex() === currencyNamespaceId)
+	)
+	.subscribe(_=> {
+		console.log("unconfirmed")
+		$('#spinner_faucet').collapse('show')
+	},err => console.error(err));
+
+	const contactQR = new qr.ContactQR("xempage.contact.1",assetPublicAccount);
+	contactQR.toBase64().subscribe(x => {
+		$('#qr_contact').attr('src',x);
+		$('#text_contact').text(assetPublicAccount.address.plain());
+	});
+	
 }
 
+function showConfirmedTx(address,hash){
+	signedTxConfirmed(address,hash)
+	.subscribe(_=> {
+		$('#confirmed_transfer ul')
+		.append('<li><a target="_blank" href="' + explorer + '/transactions/' + hash + '">エクスプローラーで確認</a></li>');
+
+	},err => {
+		alert(err);
+		console.error(err);
+	}).add(() => $('#spinner_transfer').collapse('hide'));
+}
+
+
+//■■■CONTROLLER■■■
+
+$("#restore").click(function(){ //復元
+
+	if($("#use_saved_qr:checked").val()){
+
+
+		restoreAccount(localStorage.getItem('signerJSON'));
+
+//		if(restoreAccount(localStorage.getItem('signerJSON'))){
+//			showAccountQR();
+//		}
+	}else{
+		currentTab = "tab_";
+		$('#modal-label').text("QRコード[アカウント]をスキャンしてください。")
+		$('#div-ns').collapse('hide');
+		$('#modal-qrscan').modal('show');
+		startVideo();
+	}
+});
+
+//タブ選択時
+$(".nav-item a").click( function(e){
+
+	if( this.href.indexOf("tab_transfer") > 0 && !disableScan){
+		currentTab = "tab_transfer";
+		scanData.innerText = "";
+		$('#div-ns').collapse('show');
+		$('#modal-label').text("QRコード[トランザクション]をスキャンしてください。")
+		$('#modal-qrscan').modal('show');
+		startVideo();
+
+	}else{
+		stopVideo();
+		disableScan = false;
+	}
+});
+
+//スキャンモーダルが閉じられた時
+$('#modal-qrscan').on('hide.bs.modal', function (e) {
+
+	stopVideo();
+	clearRect();
+	$('#file_image').val("");
+});
+
+//モーダルウィンドウOKクリック時
+$("#modal_ok").click(function(){
+
+	$('#scan_data_confirm').text(scanData.innerText);
+	const jsonData = JSON.parse(scanData.innerText).data;
+
+	if(currentTab == "tab_transfer"){	//送信
+
+		const aggTx = nem.TransactionMapping.createFromPayload(jsonData.payload);
+		payloadType = nem.TransactionType[aggTx.type];
+//		cosigners = [];
+		if("innerTransactions" in aggTx){
+
+			//アグリゲートトランザクションの場合
+			for(const tx of aggTx.innerTransactions){
+
+				//連署者数カウント用（署名時の手数料決定に使用）
+//				if(cosigners.find(signer => signer === tx.signer.address.plain()) === undefined){
+//					cosigners.push(tx.signer.address.plain());
+//				}
+
+				appendTxInfo(aggTx,tx.signer.address);
+/*
+				var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
+				var ddTx = "<dd>送信者:" + tx.signer.address.pretty().slice(0,14) + "..." + tx.signer.address.pretty().slice(-3) + "</dd>";
+				if("recipientAddress" in tx){
+					ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
+				}
+				$("#transfer_info").append(dtTx + ddTx);
+*/
+			}
+		}else{
+			appendTxInfo(aggTx,assetPublicAccount.address);
+/*
+			//普通のトランザクションの場合
+			const tx = aggTx;
+			var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
+			var ddTx = "<dd>送信者:" + assetPublicAccount.address.pretty().slice(0,14) + "..." + assetPublicAccount.address.pretty().slice(-3) + "</dd>";
+			if("recipientAddress" in tx){
+				ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
+			}
+			$("#transfer_info").append(dtTx + ddTx);
+*/
+		}
+
+//		$("#transfer_cosigners").text(cosigners.length);
+//		$("#transfer_txtype").text(payloadType);
+//		console.log(cosigners)
+	}else if(currentTab == "tab_"){	//復元
+
+		//スキャンでログインした場合
+		restoreAccount(scanData.innerText);
+	}
+});
+
+function linkClick(tag){
+	$(tag).click();
+}
+
+function restoreAccount(textQR){
+
+	try{
+		const signerQR = qr.AccountQR.fromJSON(textQR,$("#pass").val());
+		assetPublicAccount = (
+			nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType)
+		).publicAccount;
+
+		setSignerListener(assetPublicAccount,linkClick.bind(null,'#tab_transfer_link'));
+		signerQR.toBase64().subscribe(x => {
+			$('#div1').collapse('hide');
+			$('#div2').collapse('show');
+		});
+		signerJSON = signerQR.toJSON();
+		delete signerQR;
+	}
+	catch (e) {
+		alert("ログインできませんでした。");
+		console.log(e);
+		return false;
+	}
+
+	const appendList = function(publicKey,name){
+		$('#list-msig ul')
+		.append('<button type="button" publicKey="'
+		+ publicKey
+		+'" data-toggle="msig" class="button-msig list-group-item list-group-item-action">'
+		+ name
+		+ '</button>'
+		);
+	};
+
+	//マルチシグ保有調査
+	msigRepo.getMultisigAccountInfo(assetPublicAccount.address)
+	.subscribe(_=>{
+
+		//マルチシグが存在する場合
+		if(_.multisigAddresses.length > 0){
+
+			appendList(assetPublicAccount.publicKey,"メインアカウント");
+			accountRepo.getAccountsInfo(_.multisigAddresses)
+			.subscribe(items => {
+
+				for (item of items) {
+					appendList(item.publicKey,item.address.plain());
+				}
+			})
+
+			//マルチシグ選択モーダル
+			$('#modal-msig').modal('show');
+
+		}else{
+
+			if(_.cosignatories.length > 0){
+				alert("マルチシグ化されているため、操作できません。");
+			}
+			showAccountQR();
+		}
+	},
+	err=>{
+
+		//マルチシグが存在しない場合
+		if(err.toString().indexOf("ResourceNotFound")  > 0){
+			showAccountQR();
+		}else{
+			alert(err);
+		}
+	},
+	()=>$('#div3').collapse('show'));
+	return true;
+}
+
+//マルチシグ選択
+$("#list-msig").on("click",".button-msig", function() {
+
+	$('#modal-msig').modal('hide');
+	assetPublicAccount = nem.PublicAccount.createFromPublicKey($(this).attr("publicKey"),networkType);
+	showAccountQR();
+	
+});
+
+//新規作成
+$("#create").click(function(){
+
+	const asset = nem.Account.generateNewAccount(networkType);
+	console.log(asset);
+	assetPublicAccount = asset.publicAccount;
+	setSignerListener(assetPublicAccount,linkClick.bind(null,'#tab_transfer_link'));
+
+	//const signerQR = new qr.AccountQR(asset,$("#pass").val(),networkType);
+	const signerQR = qr.QRCodeGenerator.createExportAccount(asset.privateKey, networkType, generationHash, $("#pass").val())
+
+	signerQR.toBase64().subscribe(x =>{
+		showAccountQR();
+		$('#div1').collapse('hide');
+		$('#div3').collapse('show');
+	});
+	signerJSON = signerQR.toJSON();
+
+	var msg = "作成したアカウント情報を保存しますか？";
+	if(localStorage.getItem('signerJSON') !== null){
+		msg += "\n以前に保存していた情報は上書き削除されます。";
+	}
+
+	if(window.confirm(msg)){
+		localStorage.setItem('signerJSON',signerJSON);
+	}
+
+	delete asset;
+	delete signerQR;
+});
+
+$('#file_image').change(function(e){scanFileImage("file_image");});
+$("#button_transfer").click(
+	function(){
+
+		const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
+		const signer = nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType);
+		delete signerQR;
+
+		$('#spinner_transfer').collapse('show');
+		const jsonData = JSON.parse(scanData.innerText).data;
+		const tx = nem.TransactionMapping.createFromPayload(jsonData.payload);
+
+		if($("#transfer_txtype").text() === "AGGREGATE_BONDED"){
+			exeAggBondedTx(signer,tx);
+		}else{
+			exeTransfer(signer,tx);
+		}
+		delete signer;
+
+		//スキャンモーダル無効の終了
+		disableScan = false;
+	}
+);
+$("#button_faucet").click(function(){window.open(FAUCET + "/?recipient=" + assetPublicAccount.address.plain() + "&amount=20","_blank")});
+
+//鍵情報表示
+$("#button_qr").click(function(){
+
+	try{
+
+		const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
+		signerQR.toBase64().subscribe(x =>{
+			$('#qr_account').attr('src',x);
+			$('#qr_key').text(signerQR.accountPrivateKey);
+			$('#div-setting').collapse('show');
+		});
+		delete signerQR;
+	}
+	catch (e) {
+		alert("パスフレーズが異なります。");
+		console.log(e);
+		return false;
+	}
+});
+
+//アカウント保存
+$("#button_save").click(function(){
+
+	var msg = "アカウント情報を保存します。";
+	if(localStorage.getItem('signerJSON') !== null){
+		msg += "\n以前に保存していた情報は上書き削除されます。";
+	}
+
+	if(window.confirm(msg)){
+		localStorage.setItem('signerJSON',signerJSON);
+	}
+});
+
+//パスフレーズ変更
+$("#button_change_pass").click(function(){
+
+	try{
+
+		const oldSignerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("現在のパスフレーズを入力してください。", ""));
+		const signerQR = qr.QRCodeGenerator.createExportAccount(
+			oldSignerQR.accountPrivateKey,
+			networkType,
+			generationHash,
+			window.prompt("新しいパスフレーズを入力してください。", "")
+		);
+
+		var msg = "変更しました。アカウント情報を端末に保存しますか？";
+		if(localStorage.getItem('signerJSON') !== null){
+			msg += "\n古いパスフレーズ情報は上書き削除されます。";
+		}
+
+		signerJSON = signerQR.toJSON();
+		if(window.confirm(msg)){
+			localStorage.setItem('signerJSON',signerJSON);
+		}
+
+		delete signerQR;
+		delete oldSignerQR;
+	}
+	catch (e) {
+		alert("パスフレーズが異なります。");
+		console.log(e);
+		return false;
+	}
+});
+
+if(localStorage.getItem('signerJSON') == null){
+
+	$('#use_saved_qr').prop('checked', false);
+
+}else{
+
+	$('#div_use_saved_qr').collapse('show');
+	$('#use_saved_qr').prop('checked', true);
+}
+
+/*
 //アカウント情報表示
-function showAccountQR(){
+function _showAccountQR(){
 
 	var mosaics;
 
@@ -334,341 +706,17 @@ function showAccountQR(){
 		$('#spinner_faucet').collapse('show')
 	},err => console.error(err));
 
+
+
+
 	const contactQR = new qr.ContactQR("xempage.contact.1",assetPublicAccount);
 	contactQR.toBase64().subscribe(x => {
 		$('#qr_contact').attr('src',x);
 		$('#text_contact').text(assetPublicAccount.address.plain());
 	});
 }
-
-
-function showConfirmedTx(address,hash){
-	signedTxConfirmed(address,hash)
-	.subscribe(_=> {
-		$('#confirmed_transfer ul')
-		.append('<li><a target="_blank" href="' + explorer + '/transactions/' + hash + '">エクスプローラーで確認</a></li>');
-
-	},err => {
-		alert(err);
-		console.error(err);
-	}).add(() => $('#spinner_transfer').collapse('hide'));
-}
-
-
-//■■■CONTROLLER■■■
-
-$("#restore").click(function(){ //復元
-
-	if($("#use_saved_qr:checked").val()){
-
-
-		restoreAccount(localStorage.getItem('signerJSON'));
-
-//		if(restoreAccount(localStorage.getItem('signerJSON'))){
-//			showAccountQR();
-//		}
-	}else{
-		currentTab = "tab_";
-		$('#modal-label').text("QRコード[アカウント]をスキャンしてください。")
-		$('#div-ns').collapse('hide');
-		$('#modal-qrscan').modal('show');
-		startVideo();
-	}
-});
-
-//タブ選択時
-$(".nav-item a").click( function(e){
-
-	if( this.href.indexOf("tab_transfer") > 0 && !disableScan){
-		currentTab = "tab_transfer";
-		scanData.innerText = "";
-		$('#div-ns').collapse('show');
-		$('#modal-label').text("QRコード[トランザクション]をスキャンしてください。")
-		$('#modal-qrscan').modal('show');
-		startVideo();
-
-	}else{
-		stopVideo();
-		disableScan = false;
-	}
-});
-
-//スキャンモーダルが閉じられた時
-$('#modal-qrscan').on('hide.bs.modal', function (e) {
-
-	stopVideo();
-	crearRect();
-	$('#file_image').val("");
-});
-
-//モーダルウィンドウOKクリック時
-$("#modal_ok").click(function(){
-
-	$('#scan_data_confirm').text(scanData.innerText);
-	const jsonData = JSON.parse(scanData.innerText).data;
-
-	if(currentTab == "tab_transfer"){	//送信
-
-		const aggTx = nem.TransactionMapping.createFromPayload(jsonData.payload);
-		payloadType = nem.TransactionType[aggTx.type];
-//		cosigners = [];
-		if("innerTransactions" in aggTx){
-
-			//アグリゲートトランザクションの場合
-			for(const tx of aggTx.innerTransactions){
-
-				//連署者数カウント用（署名時の手数料決定に使用）
-//				if(cosigners.find(signer => signer === tx.signer.address.plain()) === undefined){
-//					cosigners.push(tx.signer.address.plain());
-//				}
-
-				appendTxInfo(aggTx,tx.signer.address);
-/*
-				var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
-				var ddTx = "<dd>送信者:" + tx.signer.address.pretty().slice(0,14) + "..." + tx.signer.address.pretty().slice(-3) + "</dd>";
-				if("recipientAddress" in tx){
-					ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
-				}
-				$("#transfer_info").append(dtTx + ddTx);
 */
-			}
-		}else{
-			appendTxInfo(aggTx,assetPublicAccount.address);
-/*
-			//普通のトランザクションの場合
-			const tx = aggTx;
-			var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
-			var ddTx = "<dd>送信者:" + assetPublicAccount.address.pretty().slice(0,14) + "..." + assetPublicAccount.address.pretty().slice(-3) + "</dd>";
-			if("recipientAddress" in tx){
-				ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
-			}
-			$("#transfer_info").append(dtTx + ddTx);
-*/
-		}
 
-//		$("#transfer_cosigners").text(cosigners.length);
-//		$("#transfer_txtype").text(payloadType);
-//		console.log(cosigners)
-	}else if(currentTab == "tab_"){	//復元
-
-		//スキャンでログインした場合
-		restoreAccount(scanData.innerText);
-	}
-});
-
-
-
-function restoreAccount(textQR){
-
-	try{
-		const signerQR = qr.AccountQR.fromJSON(textQR,$("#pass").val());
-		assetPublicAccount = (
-			nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType)
-		).publicAccount;
-
-		setSignerListener(assetPublicAccount,$('#tab_transfer_link').click());
-		signerQR.toBase64().subscribe(x => {
-			$('#div1').collapse('hide');
-			$('#div2').collapse('show');
-		});
-		signerJSON = signerQR.toJSON();
-		delete signerQR;
-	}
-	catch (e) {
-		alert("ログインできませんでした。");
-		console.log(e);
-		return false;
-	}
-
-	const appendList = function(publicKey,name){
-		$('#list-msig ul')
-		.append('<button type="button" publicKey="'
-		+ publicKey
-		+'" data-toggle="msig" class="button-msig list-group-item list-group-item-action">'
-		+ name
-		+ '</button>'
-		);
-	};
-
-	//マルチシグ保有調査
-	msigRepo.getMultisigAccountInfo(assetPublicAccount.address)
-	.subscribe(_=>{
-
-		//マルチシグが存在する場合
-		if(_.multisigAddresses.length > 0){
-
-			appendList(assetPublicAccount.publicKey,"メインアカウント");
-			accountRepo.getAccountsInfo(_.multisigAddresses)
-			.subscribe(items => {
-
-				for (item of items) {
-					appendList(item.publicKey,item.address.plain());
-				}
-			})
-
-			//マルチシグ選択モーダル
-			$('#modal-msig').modal('show');
-
-		}else{
-
-			if(_.cosignatories.length > 0){
-				alert("マルチシグ化されているため、操作できません。");
-			}
-			showAccountQR();
-		}
-	},
-	err=>{
-
-		//マルチシグが存在しない場合
-		if(err.toString().indexOf("ResourceNotFound")  > 0){
-			showAccountQR();
-		}else{
-			alert(err);
-		}
-	},
-	()=>$('#div3').collapse('show'));
-	return true;
-}
-
-//マルチシグ選択
-$("#list-msig").on("click",".button-msig", function() {
-
-	$('#modal-msig').modal('hide');
-	assetPublicAccount = nem.PublicAccount.createFromPublicKey($(this).attr("publicKey"),networkType);
-	showAccountQR();
-});
-
-//新規作成
-$("#create").click(function(){
-
-	const asset = nem.Account.generateNewAccount(networkType);
-	console.log(asset);
-	assetPublicAccount = asset.publicAccount;
-	setSignerListener(assetPublicAccount,$('#tab_transfer_link').click());
-
-	//const signerQR = new qr.AccountQR(asset,$("#pass").val(),networkType);
-	const signerQR = qr.QRCodeGenerator.createExportAccount(asset.privateKey, networkType, generationHash, $("#pass").val())
-
-	signerQR.toBase64().subscribe(x =>{
-		showAccountQR();
-		$('#div1').collapse('hide');
-		$('#div3').collapse('show');
-	});
-	signerJSON = signerQR.toJSON();
-
-	var msg = "作成したアカウント情報を保存しますか？";
-	if(localStorage.getItem('signerJSON') !== null){
-		msg += "\n以前に保存していた情報は上書き削除されます。";
-	}
-
-	if(window.confirm(msg)){
-		localStorage.setItem('signerJSON',signerJSON);
-	}
-
-	delete asset;
-	delete signerQR;
-});
-
-$('#file_image').change(function(e){scanFileImage("file_image");});
-$("#button_transfer").click(
-	function(){
-
-		const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
-		const signer = nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType);
-		delete signerQR;
-
-		$('#spinner_transfer').collapse('show');
-		const jsonData = JSON.parse(scanData.innerText).data;
-		const tx = nem.TransactionMapping.createFromPayload(payload);
-
-		if($("#transfer_txtype").text() === "AGGREGATE_BONDED"){
-			exeAggBondedTx(signer,tx);
-		}else{
-			exeTransfer(signer,tx);
-		}
-		delete signer;
-
-		//スキャンモーダル無効の終了
-		disableScan = false;
-	}
-);
-$("#button_faucet").click(function(){window.open(FAUCET + "/?recipient=" + assetPublicAccount.address.plain() + "&amount=20","_blank")});
-
-//鍵情報表示
-$("#button_qr").click(function(){
-
-	try{
-
-		const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
-		signerQR.toBase64().subscribe(x =>{
-			$('#qr_account').attr('src',x);
-			$('#qr_key').text(signerQR.accountPrivateKey);
-			$('#div-setting').collapse('show');
-		});
-		delete signerQR;
-	}
-	catch (e) {
-		alert("パスフレーズが異なります。");
-		console.log(e);
-		return false;
-	}
-});
-
-//アカウント保存
-$("#button_save").click(function(){
-
-	var msg = "アカウント情報を保存します。";
-	if(localStorage.getItem('signerJSON') !== null){
-		msg += "\n以前に保存していた情報は上書き削除されます。";
-	}
-
-	if(window.confirm(msg)){
-		localStorage.setItem('signerJSON',signerJSON);
-	}
-});
-
-//パスフレーズ変更
-$("#button_change_pass").click(function(){
-
-	try{
-
-		const oldSignerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("現在のパスフレーズを入力してください。", ""));
-		const signerQR = qr.QRCodeGenerator.createExportAccount(
-			oldSignerQR.accountPrivateKey,
-			networkType,
-			generationHash,
-			window.prompt("新しいパスフレーズを入力してください。", "")
-		);
-
-		var msg = "変更しました。アカウント情報を端末に保存しますか？";
-		if(localStorage.getItem('signerJSON') !== null){
-			msg += "\n古いパスフレーズ情報は上書き削除されます。";
-		}
-
-		signerJSON = signerQR.toJSON();
-		if(window.confirm(msg)){
-			localStorage.setItem('signerJSON',signerJSON);
-		}
-
-		delete signerQR;
-		delete oldSignerQR;
-	}
-	catch (e) {
-		alert("パスフレーズが異なります。");
-		console.log(e);
-		return false;
-	}
-});
-
-if(localStorage.getItem('signerJSON') == null){
-
-	$('#use_saved_qr').prop('checked', false);
-
-}else{
-
-	$('#div_use_saved_qr').collapse('show');
-	$('#use_saved_qr').prop('checked', true);
-}
 
 </script>
 </body>

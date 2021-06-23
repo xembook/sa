@@ -1,25 +1,25 @@
-var txRepo;
-var nsRepo;
-var receiptRepo;
 var transactionService;
 
-var epochAdjustment;
 var listener;
-var blockRepo;
+var txRepo;
+var nsRepo;
 var nwRepo;
-var accountRepo;
+var msigRepo;
 var nodeRepo;
 var chainRepo;
-var msigRepo;
+var blockRepo;
+var accountRepo;
+var receiptRepo;
 var networkType;
+
 var currencyId;
+var epochAdjustment;
 var totalChainImportance;
 var currencyNamespaceId;
 
 const nem = require("/node_modules/symbol-sdk");
 const op = require("/node_modules/rxjs/operators");
 const rxjs = require("/node_modules/rxjs");
-const qr   = require("/node_modules/symbol-qr-library");
 
 
 function connectNode(nodes,d){
@@ -108,7 +108,7 @@ async function listenerKeepOpening(wsEndpoint,nsRepo){
 	currencyNamespaceId = (new nem.NamespaceId("symbol.xym")).id.toHex();
 	latestBlock = (await blockRepo.search({order: nem.Order.Desc}).toPromise()).data[0];
 
-	divShow();
+	startApp();
 
 })();
 
@@ -159,7 +159,6 @@ function getDateId(timeStamp,epoch){
 	return 	dateId;
 
 }
-
 
 function paddingDate0(num) {
 	return ( num < 10 ) ? '0' + num  : num;
@@ -323,7 +322,7 @@ function exeAggBondedTx(signer,exeTx){
 	transactionService.announceHashLockAggregateBonded(
 		signedLockTx,signedAggregateTx,listener
 	)
-	.subscribe(aggTx=> showConfirmedTx(assetPublicAccount.address,aggTx.transactionInfo.hash);
+	.subscribe(aggTx=> showConfirmedTx(assetPublicAccount.address,aggTx.transactionInfo.hash));
 }
 
 //function exeTransfer(payload){
@@ -353,7 +352,7 @@ function exeTransfer(signer,exeTx){
 	delete signer;
 
 	txRepo.announce(signedTx)
-	.subscribe(aggTx=> showConfirmedTx(assetPublicAccount.address, signedTx.hash);
+	.subscribe(aggTx=> showConfirmedTx(assetPublicAccount.address, signedTx.hash));
 
 	console.log(nodeRepo.url + "/transactionStatus/" + signedTx.hash);
 	console.log(nodeRepo.url + "/transactions/confirmed/" + signedTx.hash);
@@ -375,4 +374,77 @@ const signedTxConfirmed = function(address,hash){
 			}
 		}),
 	);
+}
+
+//連署要求検知リスナー
+function setSignerListener(cosignerAccount,callback){
+
+	var bondedSubscribe = function(observer){
+
+		observer.pipe(
+
+			//すでに署名済みでない場合
+			op.filter(_ => !_.signedByAccount(cosignerAccount.address))
+
+		).subscribe(_=>{
+
+			txRepo.getTransactionsById([_.transactionInfo.hash],nem.TransactionGroup.Partial)
+			.pipe(
+				op.filter(aggTx => aggTx.length > 0)
+			)
+			.subscribe(aggTx =>{
+
+				//インナートランザクションの署名者に自分が指定されている場合
+				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.equals(cosignerAccount))!= undefined){
+
+					disableScan = true;
+					txs = aggTx[0].innerTransactions;
+					for(const tx of txs){
+						appendTxInfo(aggTx,tx.signer.address);
+					}
+					callback();
+				}
+			});
+		});
+	}
+
+	const bondedListener = listener.aggregateBondedAdded(cosignerAccount.address)
+	const bondedRepo = txRepo.search({address:cosignerAccount.address,group:nem.TransactionGroup.Partial})
+	.pipe(
+		op.delay(2000),
+		op.mergeMap(page => page.data)
+	);
+
+	bondedSubscribe(bondedListener);
+	bondedSubscribe(bondedRepo);
+}
+
+function setAccountObserver(address,opAccountInfo,subscribeAccountInfo){
+	
+	const accountSubscribe = function(observer){
+
+		observer.subscribe(_=>{
+
+			subscribeAccountInfo(_);
+
+		},err => console.log(err));
+
+	}
+
+	const assetRepo = accountRepo.getAccountInfo(address)
+	.pipe(
+		opAccountInfo()
+	);
+
+	const assetListener = listener.confirmed(address)
+	.pipe(
+		op.delay(1000),
+		op.mergeMap(x=>accountRepo.getAccountInfo(address)),
+		op.first(),
+		opAccountInfo(),
+		op.repeat()
+	)
+
+	accountSubscribe(assetRepo);
+	accountSubscribe(assetListener);
 }
