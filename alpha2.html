@@ -185,117 +185,22 @@ function divShow(){
 var assetPublicAccount;	//操作対象アカウント（マルチシグの場合は操作される対象のアカウント）
 var signerJSON;			//暗号化済み署名者アカウント
 
-var canvasElement;
-var canvas;
-
-var currentTab;			//カメラ操作している場合の現在選択中のタブ
-var isMovieScanning = false;
-var video = document.createElement("video");
-var scanData = document.getElementById("scan_data");
 var disableScan = false;
+var currentTab;			//カメラ操作している場合の現在選択中のタブ
 
-//QRコードスキャン関連///////////////////////////////////
-function drawLine(begin, end, color) {
-	canvas.beginPath();
-	canvas.moveTo(begin.x, begin.y);
-	canvas.lineTo(end.x, end.y);
-	canvas.lineWidth = 4;
-	canvas.strokeStyle = color;
-	canvas.stroke();
-}
 
-function tick() {
-	if(!isMovieScanning){return;}
-	if (video.readyState === video.HAVE_ENOUGH_DATA) {
-		canvasElement.hidden = false;
-		canvasElement.width  = $('.modal-content').width() * 0.9;
-		canvasElement.height = $('.modal-content').width() * 0.9 * video.videoHeight / video.videoWidth;
-		getCodeInfo(video);
+function appendTxInfo(tx,senderAddress){
+
+	var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
+	var ddTx = "<dd>送信者:" + senderAddress.pretty().slice(0,14) + "..." + senderAddress.pretty().slice(-3) + "</dd>";
+	if("recipientAddress" in tx){
+		ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
 	}
-	requestAnimationFrame(tick);
+	$("#transfer_info").append(dtTx + ddTx);
 }
-
-function getCodeInfo(src){
-
-	canvas.drawImage(src, 0, 0, canvasElement.width, canvasElement.height);
-	var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-	var code = jsQR(imageData.data, imageData.width, imageData.height, {inversionAttempts: "dontInvert"});
-
-	if (code) {
-		isMovieScanning = false;
-		drawLine(code.location.topLeftCorner		, code.location.topRightCorner		,"#FF3B58");
-		drawLine(code.location.topRightCorner		, code.location.bottomRightCorner	,"#FF3B58");
-		drawLine(code.location.bottomRightCorner	, code.location.bottomLeftCorner	,"#FF3B58");
-		drawLine(code.location.bottomLeftCorner		, code.location.topLeftCorner		,"#FF3B58");
-		scanData.innerText = code.data;
-	}
-}
-
-function startVideo(divId){
-
-	currentTab = "tab_" + divId;
-	isMovieScanning = true;
-	canvasElement = document.getElementById("canvas");
-	canvas		  = canvasElement.getContext("2d");
-
-	navigator.mediaDevices.getUserMedia({
-		video: {
-			facingMode: "environment"
-		}
-	})
-	.then(function(stream) {
-		video.srcObject = stream;
-		window.localStream = stream;
-		video.setAttribute("playsinline", true);
-		video.play();
-		requestAnimationFrame(tick);
-	});
-}
-
-function stopVideo(){
-	if(window.localStream != undefined){
-		window.localStream.getTracks().forEach( (track) => {
-			track.stop();
-		});
-	}
-}
-
-//ファイル処理関連///////////////////////////////
-
-function scanFileImage(){
-
-	isMovieScanning = false;
-	canvasElement.hidden = false;
-
-	stopVideo();
-
-	const fileList = document.getElementById("file_image").files;
-	const reader = new FileReader();
-	const file = fileList[0];
-	if (file.type == 'image/jpeg' || file.type == 'image/png'){
-		reader.readAsDataURL(file, "utf-8");
-		reader.onload = (function(_) {
-			return function(e) {
-
-				const img = new Image();
-				img.src = e.target.result;
-				img.onload = function() {
-					canvasElement.height = img.width;
-					canvasElement.width	= img.height;
-					getCodeInfo(img);
-				};
-			};
-		})(file);
-	} else {
-		alert('JPEGかPNGファイルをアップして下さい');
-	}
-}
-////////////////////////////////////////////////////////
-
-
 
 //連署要求検知リスナー
-function setSignerListener(cosignerAccount){
+function setSignerListener(cosignerAccount,callback){
 
 	var bondedSubscribe = function(observer){
 
@@ -317,13 +222,10 @@ function setSignerListener(cosignerAccount){
 					disableScan = true;
 					txs = aggTx[0].innerTransactions;
 					for(const tx of txs){
-
-						var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
-						var ddTx = "<dd>送信者:" + tx.signer.address.pretty().slice(0,14) + "..." + tx.signer.address.pretty().slice(-3) + "</dd>";
-						ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
-						$("#tx_info").append(dtTx + ddTx);
+						appendTxInfo(aggTx,tx.signer.address);
 					}
-					$('#tab_transfer_link').click();
+					//$('#tab_transfer_link').click();
+					callback();
 				}
 			});
 		});
@@ -439,120 +341,17 @@ function showAccountQR(){
 	});
 }
 
-//アグリゲートボンデッドトランザクション
-//function exeAggBondedTx(signer,callback,final){
-function exeAggBondedTx(){
 
-	const jsonData = JSON.parse(scanData.innerText).data;
-	var aggregateTx = nem.TransactionMapping.createFromPayload(jsonData.payload)
-	aggregateTx.deadline = nem.Deadline.create(epochAdjustment);
-	aggregateTx = aggregateTx.setMaxFeeForAggregate(100, Number($("#transfer_cosigners").text()) - 1);
-
-	console.log(aggregateTx);
-	const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
-	const signer = nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType);
-	delete signerQR;
-
-	const signedAggregateTx = signer.sign(aggregateTx, generationHash);
-	console.log(signedAggregateTx.hash);
-	const hashLockTx = nem.HashLockTransaction.create(
-		nem.Deadline.create(epochAdjustment),
-		networkCurrency.createRelative(10),
-//		new nem.Mosaic(new nem.MosaicId(CURRENCY),nem.UInt64.fromUint(10000000)),
-		nem.UInt64.fromUint(480),
-		signedAggregateTx,
-		networkType,
-		nem.UInt64.fromUint(2000000)
-	);
-
-	const aggregateLockTx = nem.AggregateTransaction.createComplete(
-		nem.Deadline.create(epochAdjustment),
-		[hashLockTx.toAggregate(assetPublicAccount)],
-		networkType,[],
-		nem.UInt64.fromUint(100000)
-	);
-
-	const signedLockTx = signer.sign(aggregateLockTx, generationHash);
-	delete signer;
-
-	const signedAggregateHashLock =  {
-		aggregate: signedAggregateTx,
-		hashLock: signedLockTx,
-	};
-
-	console.log(nodeRepo.url + "/transactionStatus/" + signedAggregateTx.hash);
-	console.log(nodeRepo.url + "/transactions/confirmed/" + signedAggregateTx.hash);
-	console.log(nodeRepo.url + "/transactionStatus/" + signedLockTx.hash);
-	console.log(nodeRepo.url + "/transactions/confirmed/" + signedLockTx.hash);
-
-	transactionService.announceHashLockAggregateBonded(
-		signedAggregateHashLock.hashLock,
-		signedAggregateHashLock.aggregate,
-		listener
-
-	).subscribe(aggTx => {
-
-		signedTxConfirmed(assetPublicAccount.address,aggTx.transactionInfo.hash)
-		.subscribe(function(_){
-
-			$('#confirmed_transfer ul')
-			.append('<li><a target="_blank" href="' + explorer + '/transactions/' + signedTx.hash + '">エクスプローラーで確認</a></li>');
-
-		},err => {
-			alert(err);
-			console.error(err);
-		}).add(() => $('#spinner_transfer').collapse('hide'));
-
-		console.log(nodeRepo.url + "/transactionStatus/" + signedTx.hash);
-		console.log(nodeRepo.url + "/transactions/confirmed/" + signedTx.hash);
-	});
-}
-
-function exeTransfer(payload){
-
-	const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
-	const signer = nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType);
-	delete signerQR;
-
-	var tx;
-	if(signer.address.plain() === assetPublicAccount.address.plain()){
-
-		tx = nem.TransactionMapping.createFromPayload(payload);
-		tx.deadline = nem.Deadline.create(epochAdjustment);
-		tx = tx.setMaxFee(100);
-		console.log(tx);
-
-	}else{
-		const innerTx = nem.TransactionMapping.createFromPayload(payload);
-		//資産アカウントと操作アカウントが異なる場合
-		const aggregateTx = nem.AggregateTransaction.createComplete(
-			nem.Deadline.create(epochAdjustment),
-			[innerTx.toAggregate(assetPublicAccount)],
-			networkType,[],
-		).setMaxFeeForAggregate(100, Number($("#transfer_cosigners").text()) - 1);
-		console.log(aggregateTx);
-		tx = aggregateTx;
-	}
-
-	const signedTx = signer.sign(tx,generationHash);
-	delete signer;
-
-	txRepo.announce(signedTx)
-	.pipe(
-		op.mergeMap(_=> signedTxConfirmed(assetPublicAccount.address, signedTx.hash))
-	)
-	.subscribe(function(_){
-
+function showConfirmedTx(address,hash){
+	signedTxConfirmed(address,hash)
+	.subscribe(_=> {
 		$('#confirmed_transfer ul')
-		.append('<li><a target="_blank" href="' + explorer + '/transactions/' + signedTx.hash + '">エクスプローラーで確認</a></li>');
+		.append('<li><a target="_blank" href="' + explorer + '/transactions/' + hash + '">エクスプローラーで確認</a></li>');
 
 	},err => {
 		alert(err);
 		console.error(err);
 	}).add(() => $('#spinner_transfer').collapse('hide'));
-
-	console.log(nodeRepo.url + "/transactionStatus/" + signedTx.hash);
-	console.log(nodeRepo.url + "/transactions/confirmed/" + signedTx.hash);
 }
 
 
@@ -569,11 +368,11 @@ $("#restore").click(function(){ //復元
 //			showAccountQR();
 //		}
 	}else{
+		currentTab = "tab_";
 		$('#modal-label').text("QRコード[アカウント]をスキャンしてください。")
 		$('#div-ns').collapse('hide');
 		$('#modal-qrscan').modal('show');
-
-		startVideo("");
+		startVideo();
 	}
 });
 
@@ -581,11 +380,12 @@ $("#restore").click(function(){ //復元
 $(".nav-item a").click( function(e){
 
 	if( this.href.indexOf("tab_transfer") > 0 && !disableScan){
+		currentTab = "tab_transfer";
 		scanData.innerText = "";
 		$('#div-ns').collapse('show');
 		$('#modal-label').text("QRコード[トランザクション]をスキャンしてください。")
 		$('#modal-qrscan').modal('show');
-		startVideo("transfer");
+		startVideo();
 
 	}else{
 		stopVideo();
@@ -597,7 +397,7 @@ $(".nav-item a").click( function(e){
 $('#modal-qrscan').on('hide.bs.modal', function (e) {
 
 	stopVideo();
-	canvas.clearRect(0, 0, canvasElement.width, canvasElement.height);
+	crearRect();
 	$('#file_image').val("");
 });
 
@@ -611,24 +411,30 @@ $("#modal_ok").click(function(){
 
 		const aggTx = nem.TransactionMapping.createFromPayload(jsonData.payload);
 		payloadType = nem.TransactionType[aggTx.type];
-		cosigners = [];
+//		cosigners = [];
 		if("innerTransactions" in aggTx){
 
 			//アグリゲートトランザクションの場合
 			for(const tx of aggTx.innerTransactions){
 
 				//連署者数カウント用（署名時の手数料決定に使用）
-				if(cosigners.find(signer => signer === tx.signer.address.plain()) === undefined){
-					cosigners.push(tx.signer.address.plain());
-				}
+//				if(cosigners.find(signer => signer === tx.signer.address.plain()) === undefined){
+//					cosigners.push(tx.signer.address.plain());
+//				}
+
+				appendTxInfo(aggTx,tx.signer.address);
+/*
 				var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
 				var ddTx = "<dd>送信者:" + tx.signer.address.pretty().slice(0,14) + "..." + tx.signer.address.pretty().slice(-3) + "</dd>";
 				if("recipientAddress" in tx){
 					ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
 				}
 				$("#transfer_info").append(dtTx + ddTx);
+*/
 			}
 		}else{
+			appendTxInfo(aggTx,assetPublicAccount.address);
+/*
 			//普通のトランザクションの場合
 			const tx = aggTx;
 			var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
@@ -637,17 +443,20 @@ $("#modal_ok").click(function(){
 				ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
 			}
 			$("#transfer_info").append(dtTx + ddTx);
+*/
 		}
 
-		$("#transfer_cosigners").text(cosigners.length);
-		$("#transfer_txtype").text(payloadType);
-		console.log(cosigners)
+//		$("#transfer_cosigners").text(cosigners.length);
+//		$("#transfer_txtype").text(payloadType);
+//		console.log(cosigners)
 	}else if(currentTab == "tab_"){	//復元
 
 		//スキャンでログインした場合
 		restoreAccount(scanData.innerText);
 	}
 });
+
+
 
 function restoreAccount(textQR){
 
@@ -657,7 +466,7 @@ function restoreAccount(textQR){
 			nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType)
 		).publicAccount;
 
-		setSignerListener(assetPublicAccount);
+		setSignerListener(assetPublicAccount,$('#tab_transfer_link').click());
 		signerQR.toBase64().subscribe(x => {
 			$('#div1').collapse('hide');
 			$('#div2').collapse('show');
@@ -735,7 +544,7 @@ $("#create").click(function(){
 	const asset = nem.Account.generateNewAccount(networkType);
 	console.log(asset);
 	assetPublicAccount = asset.publicAccount;
-	setSignerListener(assetPublicAccount);
+	setSignerListener(assetPublicAccount,$('#tab_transfer_link').click());
 
 	//const signerQR = new qr.AccountQR(asset,$("#pass").val(),networkType);
 	const signerQR = qr.QRCodeGenerator.createExportAccount(asset.privateKey, networkType, generationHash, $("#pass").val())
@@ -760,18 +569,24 @@ $("#create").click(function(){
 	delete signerQR;
 });
 
-$('#file_image').change(function(e){scanFileImage();});
+$('#file_image').change(function(e){scanFileImage("file_image");});
 $("#button_transfer").click(
 	function(){
 
+		const signerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("パスフレーズを入力してください", ""));
+		const signer = nem.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType);
+		delete signerQR;
+
 		$('#spinner_transfer').collapse('show');
 		const jsonData = JSON.parse(scanData.innerText).data;
+		const tx = nem.TransactionMapping.createFromPayload(payload);
 
-		if($("#transfer_txtype").text()=== "AGGREGATE_BONDED"){
-			exeAggBondedTx(jsonData.payload);
+		if($("#transfer_txtype").text() === "AGGREGATE_BONDED"){
+			exeAggBondedTx(signer,tx);
 		}else{
-			exeTransfer(jsonData.payload);
+			exeTransfer(signer,tx);
 		}
+		delete signer;
 
 		//スキャンモーダル無効の終了
 		disableScan = false;
@@ -816,8 +631,8 @@ $("#button_save").click(function(){
 $("#button_change_pass").click(function(){
 
 	try{
-		oldSignerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("現在のパスフレーズを入力してください。", ""));
 
+		const oldSignerQR = qr.AccountQR.fromJSON(signerJSON,window.prompt("現在のパスフレーズを入力してください。", ""));
 		const signerQR = qr.QRCodeGenerator.createExportAccount(
 			oldSignerQR.accountPrivateKey,
 			networkType,
@@ -825,13 +640,12 @@ $("#button_change_pass").click(function(){
 			window.prompt("新しいパスフレーズを入力してください。", "")
 		);
 
-		signerJSON = signerQR.toJSON();
-
 		var msg = "変更しました。アカウント情報を端末に保存しますか？";
 		if(localStorage.getItem('signerJSON') !== null){
 			msg += "\n古いパスフレーズ情報は上書き削除されます。";
 		}
 
+		signerJSON = signerQR.toJSON();
 		if(window.confirm(msg)){
 			localStorage.setItem('signerJSON',signerJSON);
 		}
