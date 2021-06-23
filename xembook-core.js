@@ -399,8 +399,9 @@ function setSignerListener(cosignerAccount,callback){
 					disableScan = true;
 					txs = aggTx[0].innerTransactions;
 					for(const tx of txs){
-						appendTxInfo(aggTx,tx.signer.address);
+						appendTxInfo(tx,tx.signer.address);
 					}
+					scanData = aggTx[0].transactionInfo.hash;
 					callback();
 				}
 			});
