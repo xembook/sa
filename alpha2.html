@@ -312,7 +312,7 @@ function setSignerListener(cosignerAccount){
 			.subscribe(aggTx =>{
 
 				//インナートランザクションの署名者に自分が指定されている場合
-				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.equals(cosignerAccount.publicAccount))!= undefined){
+				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.equals(cosignerAccount))!= undefined){
 
 					disableScan = true;
 					txs = aggTx[0].innerTransactions;
@@ -523,7 +523,7 @@ function exeTransfer(payload){
 		console.log(tx);
 
 	}else{
-		const innerTx = nem.TransactionMapping.createFromPayload(jsonData.payload);
+		const innerTx = nem.TransactionMapping.createFromPayload(payload);
 		//資産アカウントと操作アカウントが異なる場合
 		const aggregateTx = nem.AggregateTransaction.createComplete(
 			nem.Deadline.create(epochAdjustment),
@@ -551,8 +551,8 @@ function exeTransfer(payload){
 		console.error(err);
 	}).add(() => $('#spinner_transfer').collapse('hide'));
 
-	console.log(NODE + "/transactionStatus/" + signedTx.hash);
-	console.log(NODE + "/transactions/confirmed/" + signedTx.hash);
+	console.log(nodeRepo.url + "/transactionStatus/" + signedTx.hash);
+	console.log(nodeRepo.url + "/transactions/confirmed/" + signedTx.hash);
 }
 
 
@@ -562,9 +562,12 @@ $("#restore").click(function(){ //復元
 
 	if($("#use_saved_qr:checked").val()){
 
-		if(restoreAccount(localStorage.getItem('signerJSON'))){
-			showAccountQR();
-		}
+
+		restoreAccount(localStorage.getItem('signerJSON'));
+
+//		if(restoreAccount(localStorage.getItem('signerJSON'))){
+//			showAccountQR();
+//		}
 	}else{
 		$('#modal-label').text("QRコード[アカウント]をスキャンしてください。")
 		$('#div-ns').collapse('hide');
