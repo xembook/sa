@@ -61,7 +61,7 @@ async function listenerKeepOpening(wsEndpoint,nsRepo){
 
 	listener = new nem.Listener(wsEndpoint,nsRepo,WebSocket);
 	await listener.open();
-
+	console.log("listener open");
 	listener.webSocket.onclose = async function(){
 		console.log("listener onclose");
 		onListenerResume();
@@ -420,7 +420,7 @@ function setSignerListener(cosignerAccount,callback){
 }
 
 function setAccountObserver(address,opAccountInfo,subscribeAccountInfo){
-	
+
 	const accountSubscribe = function(observer){
 
 		observer.subscribe(_=>{

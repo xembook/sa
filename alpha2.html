@@ -174,8 +174,9 @@ const qr   = require("/node_modules/symbol-qr-library");
 
 //impl from core
 function onListenerResume(){
-
-	showAccountQR();
+	if(assetPublicAccount !== undefined){
+		showAccountQR();
+	}
 }
 
 function callbackClick(tag){
@@ -273,9 +274,9 @@ function showAccountQR(){
 	}
 
 	setAccountObserver(assetPublicAccount.address,opAccountInfo,subscribeAccountInfo);
-	setSignerListener(assetPublicAccount,callbackClick.bind('#tab_transfer_link'));	
+	setSignerListener(assetPublicAccount,callbackClick.bind('#tab_transfer_link'));
 
-		
+
 	//未承認トランザクション受信（スピナー回す）
 	//TODO: アグリゲートトランザクション未対応
 	console.log("listener set:"+ assetPublicAccount.address.plain());
@@ -469,7 +470,7 @@ $("#list-msig").on("click",".button-msig", function() {
 	$('#modal-msig').modal('hide');
 	assetPublicAccount = nem.PublicAccount.createFromPublicKey($(this).attr("publicKey"),networkType);
 	showAccountQR();
-	
+
 });
 
 //新規作成
