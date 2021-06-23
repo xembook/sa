@@ -21,7 +21,6 @@ const nem = require("/node_modules/symbol-sdk");
 const op = require("/node_modules/rxjs/operators");
 const rxjs = require("/node_modules/rxjs");
 
-
 function connectNode(nodes,d){
 
 	const node = nodes[Math.floor(Math.random() * nodes.length)] ;
@@ -428,7 +427,6 @@ function setAccountObserver(address,opAccountInfo,subscribeAccountInfo){
 			subscribeAccountInfo(_);
 
 		},err => console.log(err));
-
 	}
 
 	const assetRepo = accountRepo.getAccountInfo(address)
