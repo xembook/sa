@@ -171,7 +171,42 @@ const FAUCET   = 'http://faucet.testnet.symboldev.network';
 <script>
 const qr   = require("/node_modules/symbol-qr-library");
 
+_startApp(
+	//初期設定完了後
+	function(){
 
+		if(localStorage.getItem('signerJSON') == null){
+
+			$('#use_saved_qr').prop('checked', false);
+
+		}else{
+
+			$('#div_use_saved_qr').collapse('show');
+			$('#use_saved_qr').prop('checked', true);
+		}
+
+		$('#div1').collapse('show');
+
+	},
+	//リスナー再起動後
+	function(){
+		if(assetPublicAccount !== undefined){
+			showAccountQR();
+		}
+	},
+	//リスナー受信後
+	function(){
+
+		alert("署名待ちのトランザクションがあります。")
+		$("#tab_transfer_link").click();
+	},
+	//スキャン完了後
+	function(data){
+		scanData.innerText = data;
+	}
+);
+
+/*
 //impl from core
 function onListenerResume(){
 	if(assetPublicAccount !== undefined){
@@ -180,10 +215,16 @@ function onListenerResume(){
 }
 
 function callbackClick(tag){
+	alert(tag);
 	alert("署名待ちのトランザクションがあります。")
 	$(tag).click();
 }
 
+//impl
+function setCodeData(data){
+	scanData.innerText = data;
+
+}
 //アプリケーション開始
 function startApp(){
 
@@ -199,6 +240,7 @@ function startApp(){
 
 	$('#div1').collapse('show');
 }
+*/
 
 //グローバル変数
 var assetPublicAccount;	//操作対象アカウント（マルチシグの場合は操作される対象のアカウント）
@@ -274,7 +316,8 @@ function showAccountQR(){
 	}
 
 	setAccountObserver(assetPublicAccount.address,opAccountInfo,subscribeAccountInfo);
-	setSignerListener(assetPublicAccount,callbackClick.bind('#tab_transfer_link'));
+//	setSignerListener(assetPublicAccount,callbackClick.bind('#tab_transfer_link'));
+	setSignerListener(assetPublicAccount);
 
 
 	//未承認トランザクション受信（スピナー回す）
@@ -479,7 +522,8 @@ $("#create").click(function(){
 	const asset = nem.Account.generateNewAccount(networkType);
 	console.log(asset);
 	assetPublicAccount = asset.publicAccount;
-	setSignerListener(assetPublicAccount,callbackClick.bind(null,'#tab_transfer_link'));
+//	setSignerListener(assetPublicAccount,callbackClick);
+	setSignerListener(assetPublicAccount);
 
 	//const signerQR = new qr.AccountQR(asset,$("#pass").val(),networkType);
 	const signerQR = qr.QRCodeGenerator.createExportAccount(asset.privateKey, networkType, generationHash, $("#pass").val())

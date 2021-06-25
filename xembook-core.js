@@ -64,12 +64,22 @@ async function listenerKeepOpening(wsEndpoint,nsRepo){
 	console.log("listener open");
 	listener.webSocket.onclose = async function(){
 		console.log("listener onclose");
-		onListenerResume();
+		onListenerResumed();
 		await listenerKeepOpening(wsEndpoint,nsRepo);
 	}
 }
 
-(async() =>{
+var onListenerResumed;
+var onSignableTxAdded;
+var setSignTargetData;
+
+
+async function _startApp(startApp,olm,c3,c4){
+	onListenerResumed = olm;
+	onSignableTxAdded = c3;
+	setSignTargetData = c4;
+
+//(async() =>{
 
 	const d2 = $.Deferred();
 	const repo = await createRepo(d2,nodelist);
@@ -108,8 +118,9 @@ async function listenerKeepOpening(wsEndpoint,nsRepo){
 	latestBlock = (await blockRepo.search({order: nem.Order.Desc}).toPromise()).data[0];
 
 	startApp();
+}
 
-})();
+//})();
 
 function dispAmount(amount,divisibility){
 
@@ -204,7 +215,9 @@ function getCodeInfo(src){
 		drawLine(code.location.topRightCorner		, code.location.bottomRightCorner	,"#FF3B58");
 		drawLine(code.location.bottomRightCorner	, code.location.bottomLeftCorner	,"#FF3B58");
 		drawLine(code.location.bottomLeftCorner		, code.location.topLeftCorner		,"#FF3B58");
-		scanData.innerText = code.data;
+		//scanData.innerText = code.data;
+		//setCodeData(code.data);
+		setSignTargetData(code.data);
 	}
 }
 
@@ -401,8 +414,12 @@ function setSignerListener(cosignerAccount,callback){
 					for(const tx of txs){
 						appendTxInfo(tx,tx.signer.address);
 					}
-					scanData = aggTx[0].transactionInfo.hash;
-					callback();
+//					scanData = aggTx[0].transactionInfo.hash;
+					//setCodeData(aggTx[0].transactionInfo.hash);
+					setSignTargetData(aggTx[0].transactionInfo.hash);
+					onSignableTxAdded();
+//					callback();
+
 				}
 			});
 		});
