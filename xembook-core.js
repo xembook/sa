@@ -74,7 +74,7 @@ var onSignableTxAdded;
 var setSignTargetData;
 
 
-async function _startApp(startApp,cb1,cb2,cb3){
+async function startApp(ready,cb1,cb2,cb3){
 	onListenerResumed = cb1;
 	onSignableTxAdded = cb2;
 	setSignTargetData = cb3;
@@ -117,7 +117,7 @@ async function _startApp(startApp,cb1,cb2,cb3){
 	currencyNamespaceId = (new nem.NamespaceId("symbol.xym")).id.toHex();
 	latestBlock = (await blockRepo.search({order: nem.Order.Desc}).toPromise()).data[0];
 
-	startApp();
+	ready();
 }
 
 //})();
@@ -428,7 +428,9 @@ function setSignerListener(cosignerAccount,callback){
 		observer.pipe(
 
 			//すでに署名済みでない場合
-			op.filter(_ => !_.signedByAccount(cosignerAccount.address))
+			op.filter(_ => !_.signedByAccount(cosignerAccount.address)),
+			//起案者でない場合(署名により発行済み）
+			op.filter(_ =>  !_.signer.equals(cosignerAccount))
 
 		).subscribe(_=>{
 
