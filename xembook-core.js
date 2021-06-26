@@ -74,10 +74,10 @@ var onSignableTxAdded;
 var setSignTargetData;
 
 
-async function _startApp(startApp,olm,c3,c4){
-	onListenerResumed = olm;
-	onSignableTxAdded = c3;
-	setSignTargetData = c4;
+async function _startApp(startApp,cb1,cb2,cb3){
+	onListenerResumed = cb1;
+	onSignableTxAdded = cb2;
+	setSignTargetData = cb3;
 
 //(async() =>{
 
@@ -181,7 +181,6 @@ var canvas;
 
 var isMovieScanning = false;
 var video = document.createElement("video");
-var scanData = document.getElementById("scan_data");
 
 function drawLine(begin, end, color) {
 	canvas.beginPath();
@@ -217,7 +216,8 @@ function getCodeInfo(src){
 		drawLine(code.location.bottomLeftCorner		, code.location.topLeftCorner		,"#FF3B58");
 		//scanData.innerText = code.data;
 		//setCodeData(code.data);
-		setSignTargetData(code.data);
+
+		setSignTargetData(JSON.parse(code.data).data.payload);
 	}
 }
 
@@ -289,6 +289,7 @@ function scanFileImage(tag){
 //function exeAggBondedTx(signer,callback,final){
 function exeAggBondedTx(signer,exeTx){
 
+
 	//連署者数カウント用（署名時の手数料決定に使用）
 	var cosigners = [];
 	for(const tx of exeTx.innerTransactions){
@@ -306,6 +307,7 @@ function exeAggBondedTx(signer,exeTx){
 
 	const signedAggregateTx = signer.sign(aggregateTx, generationHash);
 	console.log(signedAggregateTx.hash);
+
 	const hashLockTx = nem.HashLockTransaction.create(
 		nem.Deadline.create(epochAdjustment),
 		networkCurrency.createRelative(10),
@@ -336,6 +338,36 @@ function exeAggBondedTx(signer,exeTx){
 	)
 	.subscribe(aggTx=> showConfirmedTx(assetPublicAccount.address,aggTx.transactionInfo.hash));
 }
+
+
+function exeCosignature(signer,hash){
+
+	bondedRepo = txRepo.getTransaction(hash,nem.TransactionGroup.Partial)
+	.pipe(
+		op.map(_ => {
+			return 	signer.signCosignatureTransaction(nem.CosignatureTransaction.create(_));
+		}),
+		op.mergeMap(_ => {
+			return rxjs.of({
+				ignored:txRepo.announceAggregateBondedCosignature(_),
+				hash:_.parentHash
+			});
+		}),	
+	)
+	.subscribe(aggTx=> {
+		showConfirmedTx(assetPublicAccount.address,aggTx.hash)
+	});
+
+
+
+
+//	console.log(nodeRepo.url + "/transactionStatus/" + signedTx.hash);
+//	console.log(nodeRepo.url + "/transactions/confirmed/" + signedTx.hash);
+
+
+}
+
+
 
 //function exeTransfer(payload){
 function exeTransfer(signer,exeTx){
@@ -416,6 +448,7 @@ function setSignerListener(cosignerAccount,callback){
 					}
 //					scanData = aggTx[0].transactionInfo.hash;
 					//setCodeData(aggTx[0].transactionInfo.hash);
+//					setSignTargetData(aggTx[0].serialize());
 					setSignTargetData(aggTx[0].transactionInfo.hash);
 					onSignableTxAdded();
 //					callback();

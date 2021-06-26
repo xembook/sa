@@ -248,6 +248,7 @@ var signerJSON;			//暗号化済み署名者アカウント
 
 var disableScan = false;
 var currentTab;			//カメラ操作している場合の現在選択中のタブ
+var scanData = document.getElementById("scan_data");
 
 
 function appendTxInfo(tx,senderAddress){
@@ -361,7 +362,8 @@ function showConfirmedTx(address,hash){
 
 //■■■CONTROLLER■■■
 
-$("#restore").click(function(){ //復元
+//ログイン
+$("#restore").click(function(){ 
 
 	if($("#use_saved_qr:checked").val()){
 
@@ -408,12 +410,12 @@ $('#modal-qrscan').on('hide.bs.modal', function (e) {
 //モーダルウィンドウOKクリック時
 $("#modal_ok").click(function(){
 
-	$('#scan_data_confirm').text(scanData.innerText);
-	const jsonData = JSON.parse(scanData.innerText).data;
+//	$('#scan_data_confirm').text(scanData.innerText);
+//	const jsonData = JSON.parse(scanData.innerText).data;
 
 	if(currentTab == "tab_transfer"){	//送信
 
-		const aggTx = nem.TransactionMapping.createFromPayload(jsonData.payload);
+		const aggTx = nem.TransactionMapping.createFromPayload(scanData.innerText);
 		payloadType = nem.TransactionType[aggTx.type];
 		if("innerTransactions" in aggTx){
 
@@ -422,6 +424,7 @@ $("#modal_ok").click(function(){
 
 				appendTxInfo(aggTx,tx.signer.address);
 			}
+
 		}else{
 
 			appendTxInfo(aggTx,assetPublicAccount.address);
@@ -549,6 +552,9 @@ $("#create").click(function(){
 });
 
 $('#file_image').change(function(e){scanFileImage("file_image");});
+
+/** 読み込みタブ **/
+
 $("#button_transfer").click(
 	function(){
 
@@ -557,14 +563,28 @@ $("#button_transfer").click(
 		delete signerQR;
 
 		$('#spinner_transfer').collapse('show');
-		const jsonData = JSON.parse(scanData.innerText).data;
-		const tx = nem.TransactionMapping.createFromPayload(jsonData.payload);
 
-		if($("#transfer_txtype").text() === "AGGREGATE_BONDED"){
-			exeAggBondedTx(signer,tx);
+		if(scanData.innerText.length === 64){
+
+			exeCosignature(signer,scanData.innerText);
+		
 		}else{
-			exeTransfer(signer,tx);
+
+	//		const jsonData = JSON.parse(scanData.innerText).data;
+			const tx = nem.TransactionMapping.createFromPayload(scanData.innerText);
+
+	//		if($("#transfer_txtype").text() === "AGGREGATE_BONDED"){
+			if(nem.TransactionType[tx.type] === "AGGREGATE_BONDED"){
+
+				exeAggBondedTx(signer,tx);
+
+			}else{
+
+				exeTransfer(signer,tx);
+			}
+
 		}
+		
 		delete signer;
 
 		//スキャンモーダル無効の終了
@@ -572,6 +592,8 @@ $("#button_transfer").click(
 	}
 );
 $("#button_faucet").click(function(){window.open(FAUCET + "/?recipient=" + assetPublicAccount.address.plain() + "&amount=20","_blank")});
+
+/** 設定タブ **/
 
 //鍵情報表示
 $("#button_qr").click(function(){
@@ -638,111 +660,6 @@ $("#button_change_pass").click(function(){
 		return false;
 	}
 });
-
-/*
-//アカウント情報表示
-function _showAccountQR(){
-
-	var mosaics;
-
-	const opMergeMosaics  = function(){
-
-		return 	rxjs.pipe(
-			op.mergeMap(_=>{
-				mosaics = rxjs.of(_.mosaics);
-				return _.mosaics;
-			}),
-			op.map(_ =>  _.id),
-			op.toArray(),
-		);
-	}
-
-	const accountSubscribe = function(observer){
-
-		observer.subscribe(_=>{
-
-			rxjs.zip(
-				mosaics,
-				mosaicRepo.getMosaics(_),
-				nsRepo.getMosaicsNames(_)
-			)
-			.subscribe(_=>{
-				var mosaicInfos = _[1];
-				var mosaicNames = _[2]
-
-				$("#account_info").empty();
-
-				for(var i of _[0]){
-
-					console.log(i.id.toHex());
-					var mosaicInfo = mosaicInfos.filter(function(item, index){
-					  if (item.id.toHex() == i.id.toHex()) return true;
-					});
-					var mosaicName = mosaicNames.filter(function(item, index){
-					  if (item.mosaicId.toHex() == i.id.toHex()) return true;
-					});
-					if (mosaicName[0].names[0]){
-						mosaicLabel = mosaicName[0].names[0].name;
-					}else{
-						mosaicLabel = mosaicName[0].mosaicId.toHex();
-					}
-					console.log(mosaicName);
-
-					$("#account_info").append("<dt>[" + mosaicLabel + "]</dt><dd>" + dispAmount(i.amount.toString(),mosaicInfo[0].divisibility) + "</dd>");
-				}
-			});
-
-			$('#spinner_faucet').collapse('hide');
-		},err => console.log(err));
-
-		$('#div3').collapse('show');
-	}
-
-	const assetRepo = accountRepo.getAccountInfo(assetPublicAccount.address)
-	.pipe(
-		opMergeMosaics()
-	);
-
-	const assetListener = listener.confirmed(assetPublicAccount.address)
-	.pipe(
-		op.delay(1000),
-		op.mergeMap(x=>accountRepo.getAccountInfo(assetPublicAccount.address)),
-		op.first(),
-		opMergeMosaics(),
-		op.repeat()
-	)
-
-	accountSubscribe(assetRepo);
-	accountSubscribe(assetListener);
-
-	//未承認トランザクション受信（スピナー回す）
-	//TODO: アグリゲートトランザクション未対応
-	console.log("listener set:"+ assetPublicAccount.address.plain());
-	listener.unconfirmedAdded(assetPublicAccount.address)
-	.pipe(
-		op.filter((tx) => tx.mosaics !== undefined),
-		op.mergeMap(_=>{
-			console.log(_);
-			return _.mosaics;
-		}),
-		op.filter(_ => _.id.toHex() === currencyId || _.id.toHex() === currencyNamespaceId)
-	)
-	.subscribe(_=> {
-		console.log("unconfirmed")
-		$('#spinner_faucet').collapse('show')
-	},err => console.error(err));
-
-
-
-
-	const contactQR = new qr.ContactQR("xempage.contact.1",assetPublicAccount);
-	contactQR.toBase64().subscribe(x => {
-		$('#qr_contact').attr('src',x);
-		$('#text_contact').text(assetPublicAccount.address.plain());
-	});
-}
-*/
-
 
 </script>
 </body>
