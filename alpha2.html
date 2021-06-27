@@ -251,12 +251,97 @@ var currentTab;			//カメラ操作している場合の現在選択中のタブ
 var scanData = document.getElementById("scan_data");
 
 
-function appendTxInfo(tx,senderAddress){
+async function appendTxInfo(tx,senderAddress){
 
 	var dtTx = "<dt>" + nem.TransactionType[tx.type] + "</dt>";
 	var ddTx = "<dd>送信者:" + senderAddress.pretty().slice(0,14) + "..." + senderAddress.pretty().slice(-3) + "</dd>";
+	switch (nem.TransactionType[tx.type]) {
+		case "TRANSFER":
+			ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
+
+/*
+			const mosaicZip = await rxjs.zip(
+				tx.mosaics,
+				mosaicRepo.getMosaics(tx.mosaics.id),
+				nsRepo.getMosaicsNames(tx.mosaics.id)
+			).toPromise();
+*/
+//			var mosaicInfos = mosaicZip[1];
+//			var mosaicNames = mosaicZip[2]
+
+
+//			for(var i of mosaicZip[0]){
+			for(var mosaic of tx.mosaics){
+
+				mosaicInfos = await mosaicRepo.getMosaics([mosaic.id]).toPromise();
+				mosaicNames = await nsRepo.getMosaicsNames([mosaic.id]).toPromise();
+
+				console.log(mosaic.id.toHex());
+				var mosaicInfo = mosaicInfos.filter(function(item, index){
+				  if (item.id.toHex() == mosaic.id.toHex()) return true;
+				});
+				var mosaicName = mosaicNames.filter(function(item, index){
+				  if (item.mosaicId.toHex() == mosaic.id.toHex()) return true;
+				});
+				if (mosaicName[0].names[0]){
+					mosaicLabel = mosaicName[0].names[0].name;
+				}else{
+					mosaicLabel = mosaicName[0].mosaicId.toHex();
+				}
+				console.log(mosaicName);
+
+
+				ddTx += "<dd>　[" + mosaicLabel + ":" + dispAmount(mosaic.amount.toString(),mosaicInfo[0].divisibility) + "]</dd>";
+
+//				$("#account_info").append("<dt>[" + mosaicLabel + "]</dt><dd>" + dispAmount(i.amount.toString(),mosaicInfo[0].divisibility) + "</dd>");
+//				alert(dispAmount(mosaic.amount.toString(),mosaicInfo[0].divisibility));
+//				alert(mosaicLabel);
+
+			}
+
+
+
+/*
+			for(const mosaic of tx.mosaics){
+
+				const mosaicInfo = await mosaicRepo.getMosaic(mosaic.id).toPromise();
+				alert(dispAmount(mosaic.amount,mosaicInfo.divisibility));
+				alert(mosaic.id.toHex());
+				
+			}
+*/
+			break;
+		case "MULTISIG_ACCOUNT_MODIFICATION":	break;
+		case "ACCOUNT_METADATA":	break;
+		case "NAMESPACE_METADATA":	break;
+		case "NAMESPACE_REGISTRATION":	break;
+		case "HASH_LOCK":	break;
+		case "SECRET_LOCK":	break;
+		case "SECRET_PROOF":	break;
+		case "MOSAIC_METADATA":	break;
+		case "MOSAIC_DEFINITION":	break;
+		case "MOSAIC_SUPPLY_CHANGE":	break;
+		case "MOSAIC_ALIAS":	break;
+		case "ADDRESS_ALIAS":	break;
+		case "MOSAIC_GLOBAL_RESTRICTION":	break;
+		case "MOSAIC_ADDRESS_RESTRICTION":	break;
+		case "ACCOUNT_MOSAIC_RESTRICTION":	break;
+		case "ACCOUNT_ADDRESS_RESTRICTION":	break;
+		case "ACCOUNT_OPERATION_RESTRICTION":	break;
+		case "VOTING_KEY_LINK":	break;
+		case "VRF_KEY_LINK":	break;
+		case "NODE_KEY_LINK":	break;
+		case "ACCOUNT_KEY_LINK":	break;
+//		case "AGGREGATE_COMPLETE":	break;
+//		case "AGGREGATE_BONDED":	break;
+
+		default:
+			console.log(nem.TransactionType[tx.type]);
+	}
+
+
+
 	if("recipientAddress" in tx){
-		ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
 	}
 	$("#transfer_info").append(dtTx + ddTx);
 }
@@ -408,7 +493,7 @@ $('#modal-qrscan').on('hide.bs.modal', function (e) {
 });
 
 //モーダルウィンドウOKクリック時
-$("#modal_ok").click(function(){
+$("#modal_ok").click(async function(){
 
 //	$('#scan_data_confirm').text(scanData.innerText);
 //	const jsonData = JSON.parse(scanData.innerText).data;
@@ -422,12 +507,12 @@ $("#modal_ok").click(function(){
 			//アグリゲートトランザクションの場合
 			for(const tx of aggTx.innerTransactions){
 
-				appendTxInfo(aggTx,tx.signer.address);
+				await appendTxInfo(aggTx,tx.signer.address);
 			}
 
 		}else{
 
-			appendTxInfo(aggTx,assetPublicAccount.address);
+			await appendTxInfo(aggTx,assetPublicAccount.address);
 		}
 
 	}else if(currentTab == "tab_"){	//復元
