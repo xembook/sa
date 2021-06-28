@@ -13,7 +13,16 @@
 	<h1>QRoss</h1>
 
 <div class="container">
-	<div id="qr"></div>
+
+	<div class="mb-3">
+		<label for="exampleFormControlTextarea1" class="form-label">QR</label>
+		<div id="qr"></div>
+	</div>
+
+	<div class="mb-3">
+	  <label for="exampleFormControlTextarea1" class="form-label">URI</label>
+	  <textarea class="form-control" id="qrtext" rows="10"></textarea>
+	</div>
 </div>
 
 
@@ -129,6 +138,8 @@ async function ready(){
 	txUri = transactionURI.build();
 
 	console.log(txUri);
+	$('#qrtext').val(txUri);
+
 }
 
 </script>
