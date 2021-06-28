@@ -412,7 +412,6 @@ function showAccountQR(){
 		$('#qr_contact').attr('src',x);
 		$('#text_contact').text(assetPublicAccount.address.plain());
 	});
-
 }
 
 function showConfirmedTx(address,hash){
@@ -484,19 +483,16 @@ $("#modal_ok").click(async function(){
 	if(currentTab == "tab_transfer"){	//送信
 
 		aggTx = qr.TransactionQR.fromJSON(scanData.innerText,nem.TransactionMapping.createFromPayload).transaction;
-
 //		const aggTx = nem.TransactionMapping.createFromPayload(scanData.innerText);
+
 		payloadType = nem.TransactionType[aggTx.type];
 		if("innerTransactions" in aggTx){
 
 			//アグリゲートトランザクションの場合
 			for(const tx of aggTx.innerTransactions){
-
 				await appendTxInfo(tx,tx.signer.address);
 			}
-
 		}else{
-
 			await appendTxInfo(aggTx,assetPublicAccount.address);
 		}
 
@@ -646,6 +642,7 @@ $("#button_transfer").click(
 
 		} catch (e) {
 
+			//64バイトの場合は部分署名のハッシュ値と判断
 			if(scanData.innerText.length === 64){
 
 				exeCosignature(signer,scanData.innerText);
