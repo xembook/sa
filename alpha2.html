@@ -18,7 +18,7 @@
 		<input type="text" id="pass" class="form-control">
 		<div id="div_use_saved_qr" class="form-group form-check">
 	       <input type="checkbox" class="form-check-input" id="use_saved_qr">
-	       <label class="form-check-label" for="exampleCheck1">端末の保存情報でログインする</label>
+	       <label class="form-check-label" for="use_saved_qr">端末の保存情報でログインする</label>
 	    </div>
 
 		<button type="button" id="create" class="btn btn-primary">新規作成</button>
@@ -259,18 +259,6 @@ async function appendTxInfo(tx,senderAddress){
 		case "TRANSFER":
 			ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
 
-/*
-			const mosaicZip = await rxjs.zip(
-				tx.mosaics,
-				mosaicRepo.getMosaics(tx.mosaics.id),
-				nsRepo.getMosaicsNames(tx.mosaics.id)
-			).toPromise();
-*/
-//			var mosaicInfos = mosaicZip[1];
-//			var mosaicNames = mosaicZip[2]
-
-
-//			for(var i of mosaicZip[0]){
 			for(var mosaic of tx.mosaics){
 
 				mosaicInfos = await mosaicRepo.getMosaics([mosaic.id]).toPromise();
@@ -292,11 +280,6 @@ async function appendTxInfo(tx,senderAddress){
 
 
 				ddTx += "<dd>　[" + mosaicLabel + ":" + dispAmount(mosaic.amount.toString(),mosaicInfo[0].divisibility) + "]</dd>";
-
-//				$("#account_info").append("<dt>[" + mosaicLabel + "]</dt><dd>" + dispAmount(i.amount.toString(),mosaicInfo[0].divisibility) + "</dd>");
-//				alert(dispAmount(mosaic.amount.toString(),mosaicInfo[0].divisibility));
-//				alert(mosaicLabel);
-
 			}
 
 
@@ -500,14 +483,16 @@ $("#modal_ok").click(async function(){
 
 	if(currentTab == "tab_transfer"){	//送信
 
-		const aggTx = nem.TransactionMapping.createFromPayload(scanData.innerText);
+		aggTx = qr.TransactionQR.fromJSON(scanData.innerText,nem.TransactionMapping.createFromPayload).transaction;
+
+//		const aggTx = nem.TransactionMapping.createFromPayload(scanData.innerText);
 		payloadType = nem.TransactionType[aggTx.type];
 		if("innerTransactions" in aggTx){
 
 			//アグリゲートトランザクションの場合
 			for(const tx of aggTx.innerTransactions){
 
-				await appendTxInfo(aggTx,tx.signer.address);
+				await appendTxInfo(tx,tx.signer.address);
 			}
 
 		}else{
@@ -649,12 +634,34 @@ $("#button_transfer").click(
 
 		$('#spinner_transfer').collapse('show');
 
-		if(scanData.innerText.length === 64){
+		try {
+			const jsonData = JSON.parse(scanData.innerText).data;
+			const tx = qr.TransactionQR.fromJSON(scanData.innerText,nem.TransactionMapping.createFromPayload).transaction;
 
-			exeCosignature(signer,scanData.innerText);
-		
-		}else{
+			if(nem.TransactionType[tx.type] === "AGGREGATE_BONDED"){
+				exeAggBondedTx(signer,tx);
+			}else{
+				exeTransfer(signer,tx);
+			}
 
+		} catch (e) {
+
+			if(scanData.innerText.length === 64){
+
+				exeCosignature(signer,scanData.innerText);
+			}else{
+
+				const tx = nem.TransactionMapping.createFromPayload(scanData.innerText);
+
+				if(nem.TransactionType[tx.type] === "AGGREGATE_BONDED"){
+					exeAggBondedTx(signer,tx);
+				}else{
+					exeTransfer(signer,tx);
+				}
+			}
+		}
+
+/*
 	//		const jsonData = JSON.parse(scanData.innerText).data;
 			const tx = nem.TransactionMapping.createFromPayload(scanData.innerText);
 
@@ -667,8 +674,8 @@ $("#button_transfer").click(
 
 				exeTransfer(signer,tx);
 			}
-
 		}
+*/
 		
 		delete signer;
 

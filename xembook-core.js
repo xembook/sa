@@ -217,7 +217,17 @@ function getCodeInfo(src){
 		//scanData.innerText = code.data;
 		//setCodeData(code.data);
 
-		setSignTargetData(JSON.parse(code.data).data.payload);
+//		setSignTargetData(JSON.parse(code.data).data.payload);
+		setSignTargetData(code.data);
+/*
+		const data = JSON.parse(code.data).data;
+		if('payload' in data){
+			setSignTargetData(JSON.parse(code.data).data.payload);
+
+		}else if('privateKey' in data){
+			setSignTargetData(code.data);
+		}
+*/
 	}
 }
 
