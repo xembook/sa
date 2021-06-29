@@ -431,16 +431,21 @@ const signedTxConfirmed = function(address,hash){
 }
 
 //連署要求検知リスナー
-function setSignerListener(cosignerAccount,callback){
+//function setSignerListener(cosignerAccount,callback){
+function setSignerListener(address){
 
 	var bondedSubscribe = function(observer){
 
 		observer.pipe(
 
 			//すでに署名済みでない場合
-			op.filter(_ => !_.signedByAccount(cosignerAccount.address)),
+//			op.filter(_ => !_.signedByAccount(cosignerAccount.address)),
+			op.filter(_ => !_.signedByAccount(address)),
 			//起案者でない場合(署名により発行済み）
-			op.filter(_ =>  !_.signer.equals(cosignerAccount))
+//			op.filter(_ =>  !_.signer.equals(cosignerAccount))
+			op.filter(_ =>  {
+				return _.signer.address.plain() !== address.plain();
+			})
 
 		).subscribe(_=>{
 
@@ -451,7 +456,8 @@ function setSignerListener(cosignerAccount,callback){
 			.subscribe(aggTx =>{
 
 				//インナートランザクションの署名者に自分が指定されている場合
-				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.equals(cosignerAccount))!= undefined){
+//				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.equals(cosignerAccount))!= undefined){
+				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.address.plain() === address.plain())!= undefined){
 
 					disableScan = true;
 					txs = aggTx[0].innerTransactions;
@@ -470,8 +476,10 @@ function setSignerListener(cosignerAccount,callback){
 		});
 	}
 
-	const bondedListener = listener.aggregateBondedAdded(cosignerAccount.address)
-	const bondedRepo = txRepo.search({address:cosignerAccount.address,group:nem.TransactionGroup.Partial})
+//	const bondedListener = listener.aggregateBondedAdded(cosignerAccount.address)
+	const bondedListener = listener.aggregateBondedAdded(address)
+//	const bondedRepo = txRepo.search({address:cosignerAccount.address,group:nem.TransactionGroup.Partial})
+	const bondedRepo = txRepo.search({address:address,group:nem.TransactionGroup.Partial})
 	.pipe(
 		op.delay(2000),
 		op.mergeMap(page => page.data)
@@ -509,3 +517,23 @@ function setAccountObserver(address,opAccountInfo,subscribeAccountInfo){
 	accountSubscribe(assetRepo);
 	accountSubscribe(assetListener);
 }
+
+function getMosaicAsset(i,mosaicInfos,mosaicNames){
+
+	var mosaicLabel;
+	var mosaicInfo = mosaicInfos.filter(function(item, index){
+	  if (item.id.toHex() == i.id.toHex()) return true;
+	});
+	var mosaicName = mosaicNames.filter(function(item, index){
+	  if (item.mosaicId.toHex() == i.id.toHex()) return true;
+	});
+	if (mosaicName[0].names[0]){
+		mosaicLabel = mosaicName[0].names[0].name;
+	}else{
+		mosaicLabel = mosaicName[0].mosaicId.toHex();
+	}
+
+	var mosaic = {info:mosaicInfo[0],label:mosaicLabel};
+	return mosaic;
+}
+
