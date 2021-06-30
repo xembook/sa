@@ -54,8 +54,6 @@
 			</div>
 			<div id="tab_transfer" class="tab-pane"><!-- 送信 -->
 				<br>
-				<dl id="transfer_cosigners"></dl>
-				<dl id="transfer_txtype"></dl>
 				<dl id="transfer_info"></dl>
 
 				<div>
@@ -198,6 +196,7 @@ startApp(
 	function(){
 
 		alert("署名待ちのトランザクションがあります。")
+		$("#transfer_info").empty();
 		$("#tab_transfer_link").click();
 	},
 	//スキャン完了後
@@ -419,7 +418,7 @@ $(".nav-item a").click( function(e){
 
 	if( this.href.indexOf("tab_transfer") > 0 && !disableScan){
 		currentTab = "tab_transfer";
-		scanData.innerText = "";
+//		scanData.innerText = "";
 		$('#div-ns').collapse('show');
 		$('#modal-label').text("QRコード[トランザクション]をスキャンしてください。")
 		$('#modal-qrscan').modal('show');
@@ -439,7 +438,7 @@ $('#modal-qrscan').on('hide.bs.modal', function (e) {
 	$('#file_image').val("");
 });
 
-//モーダルウィンドウOKクリック時
+//モーダルウィンドウOKクリック時(モーダル閉じる)
 $("#modal_ok").click(async function(){
 
 //	$('#scan_data_confirm').text(scanData.innerText);
@@ -448,6 +447,7 @@ $("#modal_ok").click(async function(){
 	if(currentTab == "tab_transfer"){	//送信
 
 
+		$("#transfer_info").empty();
 
 
 		aggTx = qr.TransactionQR.fromJSON(scanData.innerText,nem.TransactionMapping.createFromPayload).transaction;
@@ -484,6 +484,7 @@ $("#modal_ok").click(async function(){
 
 		//スキャンでログインした場合
 		restoreAccount(scanData.innerText);
+		scanData.innerText = "";
 	}
 });
 

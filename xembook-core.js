@@ -459,6 +459,8 @@ function setSignerListener(address){
 //				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.equals(cosignerAccount))!= undefined){
 				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.address.plain() === address.plain())!= undefined){
 
+					onSignableTxAdded();
+
 					disableScan = true;
 					txs = aggTx[0].innerTransactions;
 					for(const tx of txs){
@@ -468,7 +470,6 @@ function setSignerListener(address){
 					//setCodeData(aggTx[0].transactionInfo.hash);
 //					setSignTargetData(aggTx[0].serialize());
 					setSignTargetData(aggTx[0].transactionInfo.hash);
-					onSignableTxAdded();
 //					callback();
 
 				}
