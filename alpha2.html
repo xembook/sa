@@ -202,6 +202,7 @@ startApp(
 	},
 	//スキャン完了後
 	function(data){
+
 		scanData.innerText = data;
 	}
 );
@@ -299,9 +300,6 @@ async function appendTxInfo(tx,senderAddress){
 	}
 
 
-
-	if("recipientAddress" in tx){
-	}
 	$("#transfer_info").append(dtTx + ddTx);
 }
 
@@ -449,11 +447,30 @@ $("#modal_ok").click(async function(){
 
 	if(currentTab == "tab_transfer"){	//送信
 
+
+
+
 		aggTx = qr.TransactionQR.fromJSON(scanData.innerText,nem.TransactionMapping.createFromPayload).transaction;
 //		const aggTx = nem.TransactionMapping.createFromPayload(scanData.innerText);
 
 		payloadType = nem.TransactionType[aggTx.type];
 		if("innerTransactions" in aggTx){
+
+
+			//自分の署名が必要ないアグリゲートトランザクションの場合はダミートランザクションを生成
+			if(aggTx.innerTransactions.find(inTx => inTx.signer.equals(assetPublicAccount)) === undefined){
+				dummyTx = nem.TransferTransaction.create(
+				    undefined,
+				    assetPublicAccount.address,
+				    [],
+				    nem.EmptyMessage,
+				    networkType
+				);
+				aggTx.innerTransactions.push(dummyTx.toAggregate(assetPublicAccount));
+				qrcode = qr.QRCodeGenerator.createTransactionRequest(aggTx,networkType,generationHash);
+				scanData.innerText = qrcode.toJSON();
+				aggTx = qr.TransactionQR.fromJSON(scanData.innerText,nem.TransactionMapping.createFromPayload).transaction;
+			}
 
 			//アグリゲートトランザクションの場合
 			for(const tx of aggTx.innerTransactions){

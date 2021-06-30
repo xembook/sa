@@ -453,7 +453,7 @@ function setSignerListener(address){
 			.pipe(
 				op.filter(aggTx => aggTx.length > 0)
 			)
-			.subscribe(aggTx =>{
+			.subscribe(async function(aggTx ){
 
 				//インナートランザクションの署名者に自分が指定されている場合
 //				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.equals(cosignerAccount))!= undefined){
@@ -462,7 +462,7 @@ function setSignerListener(address){
 					disableScan = true;
 					txs = aggTx[0].innerTransactions;
 					for(const tx of txs){
-						appendTxInfo(tx,tx.signer.address);
+						await appendTxInfo(tx,tx.signer.address);
 					}
 //					scanData = aggTx[0].transactionInfo.hash;
 					//setCodeData(aggTx[0].transactionInfo.hash);
