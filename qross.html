@@ -57,11 +57,11 @@ startApp(
 async function ready(){
 
 	var mad;
-	var mam;
-	var mmo;
+	var mam = "0";
+	var mmo = "E74B99BA41F4AFEE";
 	var yad;
-	var yam;
-	var ymo;
+	var yam = "0";
+	var ymo = "E74B99BA41F4AFEE";
 
 	if (1 < document.location.search.length) {
 
@@ -99,7 +99,7 @@ async function ready(){
 
 	myTx = nem.TransferTransaction.create(
 	    undefined,
-	    yourAddress, 
+	    yourAddress,
 	    [myMosaic],
 	    nem.EmptyMessage,
 	    networkType
@@ -107,7 +107,7 @@ async function ready(){
 
 	yourTx = nem.TransferTransaction.create(
 	    undefined,
-	    myAddress, 
+	    myAddress,
 	    [yourMosaic],
 	    nem.EmptyMessage,
 	    networkType
