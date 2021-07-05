@@ -459,13 +459,17 @@ function setSignerListener(address){
 //				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.equals(cosignerAccount))!= undefined){
 				if(aggTx[0].innerTransactions.find((inTx) => inTx.signer.address.plain() === address.plain())!= undefined){
 
-					onSignableTxAdded();
+					await onSignableTxAdded(aggTx[0].innerTransactions);
 
-					disableScan = true;
-					txs = aggTx[0].innerTransactions;
-					for(const tx of txs){
-						await appendTxInfo(tx,tx.signer.address);
-					}
+
+//					disableScan = true;
+//					txs = aggTx[0].innerTransactions;
+//					for(const tx of txs){
+//						await appendTxInfo(tx,tx.signer.address);
+//					}
+
+
+
 //					scanData = aggTx[0].transactionInfo.hash;
 					//setCodeData(aggTx[0].transactionInfo.hash);
 //					setSignTargetData(aggTx[0].serialize());

@@ -193,11 +193,22 @@ startApp(
 		}
 	},
 	//リスナー受信後
-	function(){
+	async function(txs){
 
 		alert("署名待ちのトランザクションがあります。")
+
+		disableScan = true;
+
+
 		$("#transfer_info").empty();
 		$("#tab_transfer_link").click();
+
+//		txs = aggTx[0].innerTransactions;
+		for(const tx of txs){
+			await appendTxInfo(tx,tx.signer.address);
+		}
+
+
 	},
 	//スキャン完了後
 	function(data){
@@ -343,7 +354,6 @@ function showAccountQR(){
 			}
 
 			$('#spinner_faucet').collapse('hide');
-			$('#div3').collapse('show');
 		});
 	}
 
@@ -375,6 +385,8 @@ function showAccountQR(){
 	contactQR.toBase64().subscribe(x => {
 		$('#qr_contact').attr('src',x);
 		$('#text_contact').text(assetPublicAccount.address.plain());
+
+		$('#div3').collapse('show');
 	});
 }
 
