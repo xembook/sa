@@ -523,14 +523,14 @@ function setAccountObserver(address,opAccountInfo,subscribeAccountInfo){
 	accountSubscribe(assetListener);
 }
 
-function getMosaicAsset(i,mosaicInfos,mosaicNames){
+function getMosaicAsset(targetId,mosaicInfos,mosaicNames){
 
 	var mosaicLabel;
 	var mosaicInfo = mosaicInfos.filter(function(item, index){
-	  if (item.id.toHex() == i.id.toHex()) return true;
+	  if (item.id.toHex() == targetId.toHex()) return true;
 	});
 	var mosaicName = mosaicNames.filter(function(item, index){
-	  if (item.mosaicId.toHex() == i.id.toHex()) return true;
+	  if (item.mosaicId.toHex() == targetId.toHex()) return true;
 	});
 	if (mosaicName[0].names[0]){
 		mosaicLabel = mosaicName[0].names[0].name;
@@ -541,4 +541,39 @@ function getMosaicAsset(i,mosaicInfos,mosaicNames){
 	var mosaic = {info:mosaicInfo[0],label:mosaicLabel};
 	return mosaic;
 }
+
+
+async function getMosaicAsset2(itemId){
+
+
+	var mosaicId;
+	if(itemId.constructor.name === "NamespaceId"){
+		mosaicId = await nsRepo.getLinkedMosaicId(itemId).toPromise();
+	
+	}else{
+	
+		mosaicId = itemId;
+	}
+
+	var mosaicInfos = await mosaicRepo.getMosaics([mosaicId]).toPromise();
+	var mosaicNames = await nsRepo.getMosaicsNames([mosaicId]).toPromise();
+
+	var mosaicLabel;
+	var mosaicInfo = mosaicInfos.filter(function(item, index){
+	  if (item.id.toHex() == mosaicId.toHex()) return true;
+	});
+	var mosaicName = mosaicNames.filter(function(item, index){
+	  if (item.mosaicId.toHex() == mosaicId.toHex()) return true;
+	});
+	if (mosaicName[0].names[0]){
+		mosaicLabel = mosaicName[0].names[0].name;
+	}else{
+		mosaicLabel = mosaicName[0].mosaicId.toHex();
+	}
+
+	var mosaic = {info:mosaicInfo[0],label:mosaicLabel};
+	return mosaic;
+}
+
+
 

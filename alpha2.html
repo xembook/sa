@@ -271,10 +271,23 @@ async function appendTxInfo(tx,senderAddress){
 			ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
 
 			for(var item of tx.mosaics){
+/*
+				if(item.id.constructor.name === "NamespaceId"){
+					mosaicId = await nsRepo.getLinkedMosaicId(item.id).toPromise();
+				
+				}else{
+				
+					mosaicId = item.id;
+				}
 
-				mosaicInfos = await mosaicRepo.getMosaics([item.id]).toPromise();
-				mosaicNames = await nsRepo.getMosaicsNames([item.id]).toPromise();
-				const mosaic = getMosaicAsset(item,mosaicInfos,mosaicNames);
+//				mosaicInfos = await mosaicRepo.getMosaics([item.id]).toPromise();
+//				mosaicNames = await nsRepo.getMosaicsNames([item.id]).toPromise();
+				mosaicInfos = await mosaicRepo.getMosaics([mosaicId]).toPromise();
+				mosaicNames = await nsRepo.getMosaicsNames([mosaicId]).toPromise();
+//				const mosaic = getMosaicAsset(mosaicId,mosaicInfos,mosaicNames);
+*/
+
+				const mosaic = await getMosaicAsset2(item.id);
 
 //				ddTx += "<dd>　[" + mosaicLabel + ":" + dispAmount(mosaic.amount.toString(),mosaicInfo[0].divisibility) + "]</dd>";
 				ddTx += "<dd>　[" + mosaic.label + ":" + dispAmount(item.amount.toString(),mosaic.info.divisibility) + "]</dd>";
@@ -321,8 +334,8 @@ function showAccountQR(){
 	const opAccountInfo  = function(){
 
 		return 	rxjs.pipe(
-			op.mergeMap(_=>{
-				mosaics = rxjs.of(_.mosaics);
+			op.mergeMap(async function(_){
+				mosaics = await rxjs.of(_.mosaics).toPromise();
 				return _.mosaics;
 			}),
 			op.map(_ =>  _.id),
@@ -331,14 +344,30 @@ function showAccountQR(){
 	}
 
 	//subscribe実装
-	const subscribeAccountInfo = function(_){
+	const subscribeAccountInfo = async function(_){
 
+
+		$("#account_info").empty();
+
+		for(var i of mosaics){
+
+			console.log(i.id.toHex());
+			var mosaic = await getMosaicAsset2(i.id);
+
+			$("#account_info").append("<dt>[" + mosaic.label + "]</dt><dd>" + dispAmount(i.amount.toString(),mosaic.info.divisibility) + "</dd>");
+//				$("#account_info").append("<dt>[" + mosaicLabel + "]</dt><dd>" + dispAmount(i.amount.toString(),mosaicInfo[0].divisibility) + "</dd>");
+		}
+
+		$('#spinner_faucet').collapse('hide');
+
+
+/*
 		rxjs.zip(
 			mosaics,
 			mosaicRepo.getMosaics(_),
 			nsRepo.getMosaicsNames(_)
 		)
-		.subscribe(_=>{
+		.subscribe(async function(_){
 			var mosaicInfos = _[1];
 			var mosaicNames = _[2]
 
@@ -347,7 +376,7 @@ function showAccountQR(){
 			for(var i of _[0]){
 
 				console.log(i.id.toHex());
-				var mosaic = getMosaicAsset(i,mosaicInfos,mosaicNames);
+				var mosaic = await getMosaicAsset2(i.id);
 
 				$("#account_info").append("<dt>[" + mosaic.label + "]</dt><dd>" + dispAmount(i.amount.toString(),mosaic.info.divisibility) + "</dd>");
 //				$("#account_info").append("<dt>[" + mosaicLabel + "]</dt><dd>" + dispAmount(i.amount.toString(),mosaicInfo[0].divisibility) + "</dd>");
@@ -355,6 +384,7 @@ function showAccountQR(){
 
 			$('#spinner_faucet').collapse('hide');
 		});
+*/
 	}
 
 	setAccountObserver(assetPublicAccount.address,opAccountInfo,subscribeAccountInfo);
@@ -469,6 +499,14 @@ $("#modal_ok").click(async function(){
 		if("innerTransactions" in aggTx){
 
 
+			for(i = 0 ; i < aggTx.innerTransactions.length; i++){
+
+				if(aggTx.innerTransactions[i].signer.address.plain() === "TAXQUTQQNS6JEJG7PLC6FRVJ2USS44GLMVULPGQ"){
+				
+					aggTx.innerTransactions[i].signer = assetPublicAccount;
+				}
+			}
+
 			//自分の署名が必要ないアグリゲートトランザクションの場合はダミートランザクションを生成
 			if(aggTx.innerTransactions.find(inTx => inTx.signer.equals(assetPublicAccount)) === undefined){
 				dummyTx = nem.TransferTransaction.create(
@@ -479,10 +517,11 @@ $("#modal_ok").click(async function(){
 				    networkType
 				);
 				aggTx.innerTransactions.push(dummyTx.toAggregate(assetPublicAccount));
-				qrcode = qr.QRCodeGenerator.createTransactionRequest(aggTx,networkType,generationHash);
-				scanData.innerText = qrcode.toJSON();
-				aggTx = qr.TransactionQR.fromJSON(scanData.innerText,nem.TransactionMapping.createFromPayload).transaction;
 			}
+
+			qrcode = qr.QRCodeGenerator.createTransactionRequest(aggTx,networkType,generationHash);
+			scanData.innerText = qrcode.toJSON();
+			aggTx = qr.TransactionQR.fromJSON(scanData.innerText,nem.TransactionMapping.createFromPayload).transaction;
 
 			//アグリゲートトランザクションの場合
 			for(const tx of aggTx.innerTransactions){
