@@ -328,11 +328,17 @@ async function appendTxInfo(tx,senderAddress){
 
 function showAccountQR(){
 
-	var mosaics;
+//	var mosaics;
 
 	//pipeオペレーションの実装
 	const opAccountInfo  = function(){
 
+		return 	rxjs.pipe(
+			op.mergeMap(_=> _.mosaics),
+			op.toArray(),
+		);
+
+/*
 		return 	rxjs.pipe(
 			op.mergeMap(async function(_){
 				mosaics = await rxjs.of(_.mosaics).toPromise();
@@ -341,10 +347,11 @@ function showAccountQR(){
 			op.map(_ =>  _.id),
 			op.toArray(),
 		);
+*/
 	}
 
 	//subscribe実装
-	const subscribeAccountInfo = async function(_){
+	const subscribeAccountInfo = async function(mosaics){
 
 
 		$("#account_info").empty();
