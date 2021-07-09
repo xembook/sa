@@ -494,7 +494,8 @@ function setSignerListener(address){
 	bondedSubscribe(bondedRepo);
 }
 
-function setAccountObserver(address,opAccountInfo,subscribeAccountInfo){
+//function setAccountObserver(address,opAccountInfo,subscribeAccountInfo){
+function setAccountObserver(address,subscribeAccountInfo){
 
 	const accountSubscribe = function(observer){
 
@@ -507,7 +508,9 @@ function setAccountObserver(address,opAccountInfo,subscribeAccountInfo){
 
 	const assetRepo = accountRepo.getAccountInfo(address)
 	.pipe(
-		opAccountInfo()
+		op.mergeMap(_=> _.mosaics),
+		op.toArray(),
+//		opAccountInfo()
 	);
 
 	const assetListener = listener.confirmed(address)
@@ -515,7 +518,9 @@ function setAccountObserver(address,opAccountInfo,subscribeAccountInfo){
 		op.delay(1000),
 		op.mergeMap(x=>accountRepo.getAccountInfo(address)),
 		op.first(),
-		opAccountInfo(),
+//		opAccountInfo(),
+		op.mergeMap(_=> _.mosaics),
+		op.toArray(),
 		op.repeat()
 	)
 
@@ -523,7 +528,7 @@ function setAccountObserver(address,opAccountInfo,subscribeAccountInfo){
 	accountSubscribe(assetListener);
 }
 
-function getMosaicAsset(targetId,mosaicInfos,mosaicNames){
+function _getMosaicAsset(targetId,mosaicInfos,mosaicNames){
 
 	var mosaicLabel;
 	var mosaicInfo = mosaicInfos.filter(function(item, index){
@@ -543,7 +548,7 @@ function getMosaicAsset(targetId,mosaicInfos,mosaicNames){
 }
 
 
-async function getMosaicAsset2(itemId){
+async function getMosaicAsset(itemId){
 
 
 	var mosaicId;

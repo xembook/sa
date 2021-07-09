@@ -287,7 +287,7 @@ async function appendTxInfo(tx,senderAddress){
 //				const mosaic = getMosaicAsset(mosaicId,mosaicInfos,mosaicNames);
 */
 
-				const mosaic = await getMosaicAsset2(item.id);
+				const mosaic = await getMosaicAsset(item.id);
 
 //				ddTx += "<dd>　[" + mosaicLabel + ":" + dispAmount(mosaic.amount.toString(),mosaicInfo[0].divisibility) + "]</dd>";
 				ddTx += "<dd>　[" + mosaic.label + ":" + dispAmount(item.amount.toString(),mosaic.info.divisibility) + "]</dd>";
@@ -359,7 +359,7 @@ function showAccountQR(){
 		for(var i of mosaics){
 
 			console.log(i.id.toHex());
-			var mosaic = await getMosaicAsset2(i.id);
+			var mosaic = await getMosaicAsset(i.id);
 
 			$("#account_info").append("<dt>[" + mosaic.label + "]</dt><dd>" + dispAmount(i.amount.toString(),mosaic.info.divisibility) + "</dd>");
 //				$("#account_info").append("<dt>[" + mosaicLabel + "]</dt><dd>" + dispAmount(i.amount.toString(),mosaicInfo[0].divisibility) + "</dd>");
@@ -394,7 +394,8 @@ function showAccountQR(){
 */
 	}
 
-	setAccountObserver(assetPublicAccount.address,opAccountInfo,subscribeAccountInfo);
+//	setAccountObserver(assetPublicAccount.address,opAccountInfo,subscribeAccountInfo);
+	setAccountObserver(assetPublicAccount.address,subscribeAccountInfo);
 //	setSignerListener(assetPublicAccount,callbackClick.bind('#tab_transfer_link'));
 //	setSignerListener(assetPublicAccount);
 	setSignerListener(assetPublicAccount.address);
@@ -535,6 +536,17 @@ $("#modal_ok").click(async function(){
 				await appendTxInfo(tx,tx.signer.address);
 			}
 		}else{
+
+			//送信者undefinedの場合は
+			if(aggTx.signer === undefined){
+			
+				aggTx.signer = assetPublicAccount;
+			}
+
+			qrcode = qr.QRCodeGenerator.createTransactionRequest(aggTx,networkType,generationHash);
+			scanData.innerText = qrcode.toJSON();
+			aggTx = qr.TransactionQR.fromJSON(scanData.innerText,nem.TransactionMapping.createFromPayload).transaction;
+
 			await appendTxInfo(aggTx,assetPublicAccount.address);
 		}
 
