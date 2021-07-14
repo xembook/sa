@@ -615,7 +615,7 @@ $("#button_transfer").click(
 		$('#spinner_transfer').collapse('show');
 
 		try {
-			const jsonData = JSON.parse(scanData.innerText).data;
+//			const jsonData = JSON.parse(scanData.innerText).data;
 			const tx = qr.TransactionQR.fromJSON(scanData.innerText,nem.TransactionMapping.createFromPayload).transaction;
 
 			if(nem.TransactionType[tx.type] === "AGGREGATE_BONDED"){
@@ -626,12 +626,14 @@ $("#button_transfer").click(
 
 		} catch (e) {
 
-			//64バイトの場合は部分署名のハッシュ値と判断
 			if(scanData.innerText.length === 64){
 
+				//64バイトの場合は部分署名のハッシュ値と判断
 				exeCosignature(signer,scanData.innerText);
-			}else{
 
+			}else{
+				
+				//payloadデータと判断
 				const tx = nem.TransactionMapping.createFromPayload(scanData.innerText);
 
 				if(nem.TransactionType[tx.type] === "AGGREGATE_BONDED"){

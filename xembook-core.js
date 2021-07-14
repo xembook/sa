@@ -390,26 +390,71 @@ function exeTransfer(signer,exeTx){
 		tx = exeTx.setMaxFee(100);
 		console.log(tx);
 
+		const signedTx = signer.sign(tx,generationHash);
+		delete signer;
+
+		txRepo.announce(signedTx)
+		.subscribe(aggTx=> showConfirmedTx(assetPublicAccount.address, signedTx.hash));
+
+		console.log(nodeRepo.url + "/transactionStatus/" + signedTx.hash);
+		console.log(nodeRepo.url + "/transactions/confirmed/" + signedTx.hash);
+	
+	
 	}else{
+
+
 //		const innerTx = nem.TransactionMapping.createFromPayload(payload);
+
 		//資産アカウントと操作アカウントが異なる場合
-		const aggregateTx = nem.AggregateTransaction.createComplete(
+		const aggregateTx = nem.AggregateTransaction.createBonded(
 			nem.Deadline.create(epochAdjustment),
 			[exeTx.toAggregate(assetPublicAccount)],
 			networkType,[],
 		).setMaxFeeForAggregate(100, 0);
 		console.log(aggregateTx);
 		tx = aggregateTx;
+
+
+
+
+		console.log(aggregateTx);
+
+		const signedAggregateTx = signer.sign(aggregateTx, generationHash);
+		console.log(signedAggregateTx.hash);
+
+		const hashLockTx = nem.HashLockTransaction.create(
+			nem.Deadline.create(epochAdjustment),
+			networkCurrency.createRelative(10),
+			nem.UInt64.fromUint(480),
+			signedAggregateTx,
+			networkType,
+			nem.UInt64.fromUint(2000000)
+		);
+
+/*
+		const aggregateLockTx = nem.AggregateTransaction.createComplete(
+			nem.Deadline.create(epochAdjustment),
+			[hashLockTx.toAggregate(assetPublicAccount)],
+			networkType,[],
+			nem.UInt64.fromUint(100000)
+		);
+*/
+		const signedLockTx = signer.sign(hashLockTx, generationHash);
+		delete signer;
+
+		console.log(nodeRepo.url + "/transactionStatus/" + signedAggregateTx.hash);
+		console.log(nodeRepo.url + "/transactions/confirmed/" + signedAggregateTx.hash);
+		console.log(nodeRepo.url + "/transactionStatus/" + signedLockTx.hash);
+		console.log(nodeRepo.url + "/transactions/confirmed/" + signedLockTx.hash);
+
+		transactionService.announceHashLockAggregateBonded(
+			signedLockTx,signedAggregateTx,listener
+		)
+		.subscribe(aggTx=> showConfirmedTx(assetPublicAccount.address,aggTx.transactionInfo.hash));
+
 	}
 
-	const signedTx = signer.sign(tx,generationHash);
-	delete signer;
 
-	txRepo.announce(signedTx)
-	.subscribe(aggTx=> showConfirmedTx(assetPublicAccount.address, signedTx.hash));
-
-	console.log(nodeRepo.url + "/transactionStatus/" + signedTx.hash);
-	console.log(nodeRepo.url + "/transactions/confirmed/" + signedTx.hash);
 }
 
 
