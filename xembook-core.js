@@ -328,14 +328,16 @@ function exeAggBondedTx(signer,exeTx){
 		nem.UInt64.fromUint(2000000)
 	);
 
+/*
 	const aggregateLockTx = nem.AggregateTransaction.createComplete(
 		nem.Deadline.create(epochAdjustment),
 		[hashLockTx.toAggregate(assetPublicAccount)],
 		networkType,[],
 		nem.UInt64.fromUint(100000)
 	);
+*/
 
-	const signedLockTx = signer.sign(aggregateLockTx, generationHash);
+	const signedLockTx = signer.sign(hashLockTx, generationHash);
 	delete signer;
 
 	console.log(nodeRepo.url + "/transactionStatus/" + signedAggregateTx.hash);
