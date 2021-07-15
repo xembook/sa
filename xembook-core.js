@@ -310,7 +310,7 @@ function exeAggBondedTx(signer,exeTx){
 	}
 
 //	const jsonData = JSON.parse(scanData.innerText).data;
-	exeTx.deadline = nem.Deadline.create(epochAdjustment);
+	exeTx.deadline = nem.Deadline.create(epochAdjustment,48);
 	const aggregateTx = exeTx.setMaxFeeForAggregate(100, cosigners.length - 1);
 
 	console.log(aggregateTx);
@@ -322,7 +322,8 @@ function exeAggBondedTx(signer,exeTx){
 		nem.Deadline.create(epochAdjustment),
 		networkCurrency.createRelative(10),
 //		new nem.Mosaic(new nem.MosaicId(CURRENCY),nem.UInt64.fromUint(10000000)),
-		nem.UInt64.fromUint(480),
+//		nem.UInt64.fromUint(480),
+		nem.UInt64.fromUint(5760),
 		signedAggregateTx,
 		networkType,
 		nem.UInt64.fromUint(2000000)
@@ -409,7 +410,7 @@ function exeTransfer(signer,exeTx){
 
 		//資産アカウントと操作アカウントが異なる場合
 		const aggregateTx = nem.AggregateTransaction.createBonded(
-			nem.Deadline.create(epochAdjustment),
+			nem.Deadline.create(epochAdjustment,48),
 			[exeTx.toAggregate(assetPublicAccount)],
 			networkType,[],
 		).setMaxFeeForAggregate(100, 0);
@@ -427,7 +428,8 @@ function exeTransfer(signer,exeTx){
 		const hashLockTx = nem.HashLockTransaction.create(
 			nem.Deadline.create(epochAdjustment),
 			networkCurrency.createRelative(10),
-			nem.UInt64.fromUint(480),
+//			nem.UInt64.fromUint(480),
+			nem.UInt64.fromUint(5760),
 			signedAggregateTx,
 			networkType,
 			nem.UInt64.fromUint(2000000)
